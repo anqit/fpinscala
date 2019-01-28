@@ -110,11 +110,13 @@ sealed trait Stream[+A] {
     def startsWith[A](s: Stream[A]): Boolean =
         zipAll_u(s).takeWhile(!_._2.isEmpty) forAll { case (h, h2) => h == h2 }
 
-    def tails: Stream[Stream[A]] = 
-        unfold(this) {
+    def tails: Stream[Stream[A]] = unfold(this) {
             case Empty => None
             case Cons(h, t) => Some((cons(h(), t()), t()))
         } append Stream(empty)
+
+    def scanRight[B](z: B)(f: (A, => B) => B): Stream[B] =
+        tails.map(_.foldRight(z)(f))
 
     def hasSubsequence[A](s: Stream[A]): Boolean = 
         tails exists (_ startsWith s)
@@ -221,6 +223,8 @@ object Main {
         println("startsWith arm: " + bs.startsWith(Stream("a", "r", "m")))
         println("tails: " + bs.tails)
         println("hasSub: " + bs.hasSubsequence(Stream("k", "i", "t")))
+
+        println("scan right: " + Stream(1,2,3).scanRight(0)(_ + _))
     }
 
     def digitToString(i: Int): String = i match {
