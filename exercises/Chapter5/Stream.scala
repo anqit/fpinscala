@@ -55,6 +55,8 @@ sealed trait Stream[+A] {
     def forAll_fr(p: A => Boolean): Boolean =
         foldRight(true)((a, b) => p(a) && b)
         
+    def exists(p: A => Boolean): Boolean = foldRight(false)((a, b) => p(a) || b)
+
     def foldRight[B](z: => B)(f: (A, => B) => B): B = this match {
         case Cons(h, t) => f(h(), t().foldRight(z)(f))
         case _ => z
@@ -104,6 +106,18 @@ sealed trait Stream[+A] {
             case (Empty, Cons(bh, bt)) => Some(((None, Some(bh())), (empty[A], bt())))
             case (Empty, Empty) => None
         }
+
+    def startsWith[A](s: Stream[A]): Boolean =
+        zipAll_u(s).takeWhile(!_._2.isEmpty) forAll { case (h, h2) => h == h2 }
+
+    def tails: Stream[Stream[A]] = 
+        unfold(this) {
+            case Empty => None
+            case Cons(h, t) => Some((cons(h(), t()), t()))
+        } append Stream(empty)
+
+    def hasSubsequence[A](s: Stream[A]): Boolean = 
+        tails exists (_ startsWith s)
 
     override def toString = toList.toString
 }
@@ -196,10 +210,17 @@ object Main {
         println("map_u: " + s.map_u(digitToString _))
         println("take_u: " + s.take_u(5))
         println("takeWhile_u: " + s.takeWhile_u(_ < 4))
+        
         val bs = Stream("a","n","k","i","t")
         println("bs: " + bs)
         println("zipwith_u: " + s.zipWith_u(bs)((i, c) => c + digitToString(i)))
         println("zipAll_u: " + s.zipAll_u(bs))
+        println()
+        println("===== subs =====")
+        println("startsWith ank: " + bs.startsWith(Stream("a", "n", "k")))
+        println("startsWith arm: " + bs.startsWith(Stream("a", "r", "m")))
+        println("tails: " + bs.tails)
+        println("hasSub: " + bs.hasSubsequence(Stream("k", "i", "t")))
     }
 
     def digitToString(i: Int): String = i match {
