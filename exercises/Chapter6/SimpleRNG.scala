@@ -103,13 +103,13 @@ object RNG {
 
 
     def sequence_rec[A](fs: List[Rand[A]]): Rand[List[A]] = {
-        def go(as: List[Rand[A]], rng: RNG): (List[A], RNG) = {
-            as match {
+        def go(ras: List[Rand[A]], rng: RNG): (List[A], RNG) = {
+            ras match {
                 case Nil => (List(), rng)
                 case ra :: tail =>
                     val (a, next) = ra(rng)
-                    val (rest, last) = go(tail, next)
-                    (a :: rest, last)
+                    val (as, last) = go(tail, next)
+                    (a :: as, last)
             }
         }
         rng => go(fs, rng)
