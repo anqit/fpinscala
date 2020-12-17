@@ -98,6 +98,7 @@ object RNG {
         val buf = new collection.mutable.ListBuffer[A]
         rng => {
             var r = rng
+
             for (
                 f <- fs
             ) {
@@ -121,6 +122,10 @@ object RNG {
             }
         }
         rng => go(fs, rng)
+    }
+
+    def ints_seq(count: Int): Rand[List[Int]] = {
+        sequence()
     }
 }
 
