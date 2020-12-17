@@ -112,7 +112,7 @@ sealed trait Stream[+A] {
 
     def tails: Stream[Stream[A]] = unfold(this) {
             case Empty => None
-            case Cons(h, t) => Some((cons(h(), t()), t()))
+            case s @ Cons(_, t) => Some((s, t()))
         } append Stream(empty)
 
     def scanRight[B](z: B)(f: (A, => B) => B): Stream[B] =
