@@ -110,6 +110,20 @@ object RNG {
         }
     }
 
+    def sequence_no_buf[A](fs: List[Rand[A]]): Rand[List[A]] = {
+        rng => {
+            var r = rng
+
+            (for (
+                f <- fs
+            ) yield {
+                val (a, next) = f(r)
+                r = next
+                a
+            }, r)
+        }
+    }
+
     def sequence_rec[A](fs: List[Rand[A]]): Rand[List[A]] = {
         def go(as: List[Rand[A]], r: RNG): (List[A], RNG) = {
             as match {
@@ -125,7 +139,7 @@ object RNG {
     }
 
     def ints_seq(count: Int): Rand[List[Int]] = {
-        sequence()
+        sequence(List.fill(count)(int))
     }
 }
 
