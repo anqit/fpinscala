@@ -25,13 +25,20 @@ object State {
     def sequence[S, A](sas: List[State[S, A]]): State[S, List[A]] =
         sas.foldRight(unit[S, List[A]](List[A]()))((sa, as) => map2(sa, as)(_ :: _))
 
+    // this is helpful to get access to the state, which is generally
+    // not available in other combinators
     def get[S]: State[S, S] = State(s => (s, s))
 
+    // set the state directly
     def set[S](s: S): State[S, Unit] = State(_ => ((), s))
 
+    // create a State whose `run()` only operates on the state S
+    // equivalent to State(s => ((), f(s)))
     def modify[S](f: S => S): State[S, Unit] = for {
             s <- get
             _ <- set(f(s))
         } yield ()
 
+    def mod[S](f: S => S): State[S, Unit] =
+        get[S].flatMap(s => set(f(s)))
 }
