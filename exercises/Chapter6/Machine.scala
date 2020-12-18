@@ -54,23 +54,28 @@ object Machine {
     def simulateMachine_translated(inputs: List[Input]): State[Machine, (Int, Int)] = {
         // a function that takes a function that transforms a machine, and returns
         // a State whose run() method returns the transformed machine as the next state
+        // "tell me how to modify a machine"
         val modMach: (Machine => Machine) => State[Machine, Unit] = modify[Machine] _
 
         // a function that takes an input and returns a State whose run() method
         // returns the machine updated by the input as the next state
+        // "if you give me an input, i can modify a machine"
         val comp: Input => State[Machine, Unit] = modMach compose update
 
         // maps all of the inputs to `State`s whose run() method returns the given machine
         // updated by the input as the next state
+        // "i will perform these modifications in this order"
         val mapped: List[State[Machine, Unit]] = inputs map comp
 
         // returns a State whose Action is just an accumulation of Units, but whose
         // state (a Machine) has been updated by subsequent transformations traversing the
         // `mapped` List
+        // "i have updated the machine as instructed, and now hold that updated machine in my internal state"
         val seq: State[Machine, List[Unit]] = sequence(mapped)
 
         // flatMaps `seq`, ignores the action (List[Unit]), returns a `get`
         // that maps the `seq` state (the transformed Machine) to the desired tuple action
+        // "i will expose my internal state as an action and transform it to the desired structure"
         val ret = seq.flatMap(_ => get.map(s => (s.coins, s.candies)))
 
         ret
