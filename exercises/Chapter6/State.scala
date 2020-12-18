@@ -23,5 +23,15 @@ object State {
         sa.flatMap(a => sb.map(f(a, _)))
 
     def sequence[S, A](sas: List[State[S, A]]): State[S, List[A]] =
-        sas.foldRight(unit(List[A]()))((sa, as) => map2(sa, as)(_ :: _))
+        sas.foldRight(unit[S, List[A]](List[A]()))((sa, as) => map2(sa, as)(_ :: _))
+
+    def get[S]: State[S, S] = State(s => (s, s))
+
+    def set[S](s: S): State[S, Unit] = State(_ => ((), s))
+
+    def modify[S](f: S => S): State[S, Unit] = for {
+            s <- get
+            _ <- set(f(s))
+        } yield ()
+
 }
