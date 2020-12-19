@@ -22,6 +22,11 @@ object Par {
 
     def run[A](es: ExecutorService)(p: Par[A]): Future[A] = p(es)
 
+    def asyncF[A, B](f: A => B): A => Par[B] = a => lazyUnit(f(a))
+
+    def sequence[A](pas: List[Par[A]]): Par[List[A]] = {
+        pas.foldRight[Par[List[A]]](unit(List()))((pa, as) => map2(pa, as)(_ :: _))
+    }
 }
 
 abstract class ExecutorService {
