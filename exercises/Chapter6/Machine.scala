@@ -21,6 +21,7 @@ object Machine {
             case _ => m
         }
 
+    // I guess I completely missed the point here...
     def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] = State(machine =>
         inputs match {
             case Nil => ((machine.coins, machine.candies), machine)
@@ -46,7 +47,7 @@ object Machine {
     // the IMPORTANT thing to remember/realize here is that each of the flatMap/map/sequence.. etc
     // functions are internally `update()`ing and propagating that updated state (Machine)
     // to the next combinator. thus, at the end, the given machine will have processed
-    // all the given inputs, but as the state of the State, not the action. only at the end,
+    // all the given `inputs`, but as the state of the State, not the action. only at the end,
     // is the state (Machine) returned as the action as well (via `get()`) and mapped
     // to the desired output tuple
     // this is an interesting use of State, where the action pretty much is irrelevant
@@ -64,7 +65,7 @@ object Machine {
 
         // maps all of the inputs to `State`s whose run() method returns the given machine
         // updated by the input as the next state
-        // "i will perform these modifications in this order"
+        // "if you give me a machine, i will perform these modifications in this order on that machine"
         val mapped: List[State[Machine, Unit]] = inputs map comp
 
         // returns a State whose Action is just an accumulation of Units, but whose
