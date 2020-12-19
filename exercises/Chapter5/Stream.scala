@@ -1,3 +1,5 @@
+package Chapter5
+
 sealed trait Stream[+A] {
     import Stream._
 
@@ -66,7 +68,7 @@ sealed trait Stream[+A] {
         foldRight(empty[A])((a, b) => if(p(a)) cons(a, b) else empty) 
 
     def headOption: Option[A] =
-        foldRight(None: Option[A])((a, b) => Some(a))
+        foldRight(scala.None: Option[A])((a, _) => scala.Some(a))
 
     def map[B](f: A => B): Stream[B] = 
         foldRight(empty[B])((a, b) => cons(f(a), b))
@@ -81,8 +83,8 @@ sealed trait Stream[+A] {
         foldRight(empty[B])((a, b) => f(a) append b)
 
     def map_u[B](f: A => B): Stream[B] = unfold(this) {
-            case Empty => None
-            case Cons(h, t) => Some(f(h()) -> t())
+            case Empty => scala.None
+            case Cons(h, t) => scala.Some(f(h()) -> t())
         }
 
     def take_u(n: Int): Stream[A] = unfold((this, n)) {
