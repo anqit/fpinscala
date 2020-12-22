@@ -14,11 +14,16 @@ object Par {
 
     def fork[A](p: => Par[A]): Par[A] = es => es.submit(p(es).get)
 
+    def delay[A](p: => Par[A]): Par[A] = es => p(es)
+
     def map2[A, B, C](a: Par[A], b: Par[B])(f: (A, B) => C): Par[C] = es => {
             val af = a(es)
             val bf = b(es)
             (af mapWith bf)(f)
         }
+
+    def map[A, B](a: Par[A])(f: A => B): Par[B] =
+        map2(a, unit(()))((a, _) => f(a))
 
     def run[A](es: ExecutorService)(p: Par[A]): Future[A] = p(es)
 
@@ -26,6 +31,36 @@ object Par {
 
     def sequence[A](pas: List[Par[A]]): Par[List[A]] = {
         pas.foldRight[Par[List[A]]](unit(List()))((pa, as) => map2(pa, as)(_ :: _))
+    }
+
+    def parFilter[A](as: List[A])(f: A => Boolean): Par[List[A]] = {
+        val pars: List[Par[List[A]]] = as.map(asyncF(a => if(f(a)) List(a) else List()))
+
+        map(sequence(pars))(_.flatten)
+    }
+
+    def parReduce[A, B](as: IndexedSeq[A])(b: B)(acc: (A, B) => B, comb: (B, B) => B): Par[B] = {
+        if (as.length == 0) unit(b)
+        else if (as.length == 1) asyncF(acc(_, b))(as(0))
+        else {
+            val (l, r) = as.splitAt(as.length / 2)
+            map2(fork(parReduce(l)(b)(acc, comb)), fork(parReduce(r)(b)(acc, comb)))(comb)
+        }
+    }
+
+    def sum(ints: IndexedSeq[Int]): Par[Int] = parReduce(ints)(0)(_ + _, _ + _)
+    def max(ints: IndexedSeq[Int]): Par[Int] = parReduce(ints)(Int.MinValue)((a, b) => if (a > b) a else b, (b1, b2) => if (b1 > b2) b1 else b2)
+
+    type Paragraph = List[String]
+    def countWords(paras: IndexedSeq[Paragraph]): Par[Int] = {
+//        List[Par[Int]] parParas = paras.map(asyncF(_.length))
+        parReduce[Paragraph, Int](paras)(0)(_.length + _, _ + _)
+    }
+
+    def map4[A, B, C, D, E](a: Par[A], b: Par[B], c: Par[C], d: Par[D])(f: (A, B, C, D) => E): Par[E] = {
+        val ab = map2(a, b)((a, b) => f(a, b, _, _))
+        val abc = map2(ab, c)((fab, c) => fab(c, _))
+        map2(abc, d)(_(_))
     }
 }
 
@@ -83,4 +118,18 @@ case class UnitFuture[A](get: A) extends Future[A] {
     override def isDone: Boolean = true
 
     override def isCancelled: Boolean = false
+}
+
+object Main {
+    def main(args: Array[String]): Unit = {
+        val es = new ExecutorService {
+            override def submit[A](a: => A): Future[A] = UnitFuture(a)
+        }
+        val ints = IndexedSeq(3, 6, 9, 100, -4)
+
+        val max = Par.max(ints)(es).get
+        val sum = Par.sum(ints)(es).get
+        println(max)
+        println(sum)
+    }
 }
