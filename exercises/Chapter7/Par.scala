@@ -75,22 +75,27 @@ object Par {
     def choiceMap[K, V](key: Par[K])(choices: Map[K, Par[V]]): Par[V] = es =>
         choices(run(es)(key).get)(es)
 
-    def choiceNViaChoiceMap[A](n: Par[Int])(choices: List[Par[A]]): Par[A] = es => {
-        var map = Map[Int, Par[A]]()
-        var i = 0
-        for(
-            c <- choices
-        ) {
-            map = map += (i, c)
-            i += 1
-        }
+    def choiceNViaChoiceMap[A](n: Par[Int])(choices: List[Par[A]]): Par[A] = {
+        val map = choices.zipWithIndex.foldLeft(Map[Int, Par[A]]())((m, e) => m + (e._2, e._1))
 
-        var m = choices.zipWithIndex.foldLeft(Map[Int, Par[A]]())((acc, e) => {
-            acc += (e._2, e._1)
-        })
-
-        choiceMap[Int, A](n)(choices(_))(map)
+        choiceMap[Int, A](n)(map)
     }
+
+    def chooser[A, B](pa: Par[A])(f: A => Par[B]): Par[B] = es => f(run(es)(pa).get)(es)
+
+    def choiceViaChooser[A](cond: Par[Boolean])(t: Par[A], f: Par[A]): Par[A] =
+        chooser(cond)(b => if (b) t else f)
+
+    def choiceNViaChooser[A](n: Par[Int])(choices: List[Par[A]]): Par[A] =
+        chooser(n)(choices _)
+
+    def join[A](a: Par[Par[A]]): Par[A] = es => run(es)(a).get(es)
+
+    def flatMapViaJoin[A, B](pa: Par[A])(f: A => Par[B]): Par[B] =
+        join(map(pa)(f))
+
+    def joinViaFlatMap[A](pa: Par[Par[A]]): Par[A] = chooser(pa)(a => a)
+
 }
 
 abstract class ExecutorService {
