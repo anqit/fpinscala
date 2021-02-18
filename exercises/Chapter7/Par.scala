@@ -22,6 +22,9 @@ object Par {
             (af mapWith bf)(f)
         }
 
+    def map2Chooser[A, B, C](a: Par[A], b: Par[B])(f: (A, B) => C): Par[C] =
+        chooser(map(a)(a => map(b => (a, b))))(ab => unit(f(ab._1, ab._2)))
+
     def map[A, B](a: Par[A])(f: A => B): Par[B] =
         map2(a, unit(()))((a, _) => f(a))
 
