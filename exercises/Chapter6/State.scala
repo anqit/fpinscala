@@ -19,7 +19,7 @@ object State {
 
     def unit[S, A](a: A): State[S, A] = State(s => (a, s))
 
-    def map2[S, A, B, C](sa: State[S, A], sb: State[S, B])(f: (A, B) => C) =
+    def map2[S, A, B, C](sa: State[S, A], sb: State[S, B])(f: (A, B) => C): State[S, C] =
         sa.flatMap(a => sb.map(f(a, _)))
 
     def sequence[S, A](sas: List[State[S, A]]): State[S, List[A]] =

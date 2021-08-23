@@ -14,7 +14,7 @@ object Par {
 
     def fork[A](p: => Par[A]): Par[A] = es => es.submit(p(es).get)
 
-    def delay[A](p: => Par[A]): Par[A] = p _ // es => p(es)
+    def delay[A](p: => Par[A]): Par[A] = p // es => p(es)
 
     def map2[A, B, C](a: Par[A], b: Par[B])(f: (A, B) => C): Par[C] = es => {
             val af = a(es)
@@ -22,8 +22,10 @@ object Par {
             (af mapWith bf)(f)
         }
 
-    def map2Chooser[A, B, C](a: Par[A], b: Par[B])(f: (A, B) => C): Par[C] =
-        chooser(map(a)(a => map(b => (a, b))))(ab => unit(f(ab._1, ab._2)))
+    def map2Chooser[A, B, C](a: Par[A], b: Par[B])(f: (A, B) => C): Par[C] = {
+        val step = map(a)(x => map(b)(y => (x, y)))
+        chooser(flatMapViaJoin(a)(x => map(b)(y => (x, y))))(ab => unit(f(ab._1, ab._2)))
+    }
 
     def map[A, B](a: Par[A])(f: A => B): Par[B] =
         map2(a, unit(()))((a, _) => f(a))
@@ -79,7 +81,7 @@ object Par {
         choices(run(es)(key).get)(es)
 
     def choiceNViaChoiceMap[A](n: Par[Int])(choices: List[Par[A]]): Par[A] = {
-        val map = choices.zipWithIndex.foldLeft(Map[Int, Par[A]]())((m, e) => m + (e._2, e._1))
+        val map = choices.zipWithIndex.foldLeft(Map[Int, Par[A]]())((m, e) => m + (e._2 -> e._1))
 
         choiceMap[Int, A](n)(map)
     }
@@ -90,7 +92,7 @@ object Par {
         chooser(cond)(b => if (b) t else f)
 
     def choiceNViaChooser[A](n: Par[Int])(choices: List[Par[A]]): Par[A] =
-        chooser(n)(choices _)
+        chooser(n)(choices(_))
 
     def join[A](a: Par[Par[A]]): Par[A] = es => run(es)(a).get(es)
 

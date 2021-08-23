@@ -141,11 +141,11 @@ object RNG {
 
 }
 
-object Main {
+object RNGMain {
     def main(args: Array[String]): Unit = {
         println("ints: " + RNG.ints(5)(SimpleRNG(42))._1)
         println("randIntDouble: " + RNG.randIntDouble(SimpleRNG(42))._1)
-        println("seq: " + RNG.sequence(List(RNG.int, RNG.double, RNG.double, RNG.double))(SimpleRNG(42))._1)
-        println("seq_rec: " + RNG.sequence_rec(List(RNG.int, RNG.double, RNG.double, RNG.double))(SimpleRNG(42))._1)
+        println("seq: " + RNG.sequence(List(RNG.int, RNG.double _, RNG.double _, RNG.double _))(SimpleRNG(42))._1)
+        println("seq_rec: " + RNG.sequence_rec(List(RNG.int, RNG.double _, RNG.double _, RNG.double _))(SimpleRNG(42))._1)
     }
 }
