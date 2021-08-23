@@ -1,7 +1,8 @@
 package Chapter8
 
+import Chapter5.Stream
 import Chapter6.{RNG, SimpleRNG, State}
-import Chapter8.Prop.{FailedCase, SuccessCount}
+import Chapter8.Prop.{FailedCase, SuccessCount, TestCases}
 
 // trait Gen[A]
 
@@ -16,7 +17,21 @@ case class Gen[A](sample: State[RNG, A]) {
 object Gen {
     def listOf[A](a: Gen[A]): Gen[List[A]] = ???
 
-    def forAll[A](a: Gen[A])(f: A => Boolean): Prop = ???
+    def forAll[A](a: Gen[A])(f: A => Boolean, tag: String = ""): Prop = Prop { (n, rng) =>
+        randomStream(a)(rng).zip(Stream.from(0)).take(n).map {
+            case (a, i) => try {
+                if (f(a)) Passed else Falsified(a.toString, i, tag)
+            } catch { case e: Exception => Falsified(buildMessage(a, e), i, tag)}
+        }.find(_.isFalsified).getOrElse(Passed)
+    }
+
+    def randomStream[A](g: Gen[A])(rng: RNG): Stream[A] =
+        Stream.unfold(rng)(rng => Some(g.sample.run(rng)))
+
+    def buildMessage[A](s: A, e: Exception): String =
+        s"test case: $s\n" +
+        s"caused exception: ${e.getMessage}\n" +
+          s"stack trace:\n ${e.getStackTrace.mkString("\n")}"
 
     def choose(start: Int, stopExcl: Int): Gen[Int] = {
         val rand = RNG.map(RNG.nonNegativeLessThan(stopExcl - start)) { _ + start }
@@ -67,17 +82,34 @@ object Gen {
     }
 }
 
-trait Prop {
-    def check: Either[(FailedCase, SuccessCount), SuccessCount]
+sealed trait Result {
+    def isFalsified: Boolean
+}
+case object Passed extends Result {
+    override def isFalsified: Boolean = false
+}
+case class Falsified(failure: FailedCase, successes: SuccessCount, tag: String = "") extends Result {
+    override def isFalsified: Boolean = true
+}
 
-//    def &&(p: Prop): Prop = Prop(() => check && p.check)
+case class Prop(run: (TestCases, RNG) => Result, tag: String = "") {
+    def &&(p: Prop): Prop = Prop { (n, rng) =>
+        run(n, rng) match {
+            case f: Falsified => f
+            case Passed => p.run(n, rng)
+        }
+    }
+
+    def ||(p: Prop): Prop = Prop { (n, rng) =>
+        run(n, rng) match {
+            case Falsified(_, _, tag) => (p.copy(tag = tag)).run(n, rng)
+            case x => x
+        }
+    }
 }
 
 object Prop {
+    type TestCases = Int
     type SuccessCount = Int
     type FailedCase = String
-
-    def apply(czech: () => Either[(FailedCase, SuccessCount), SuccessCount]): Prop = new Prop {
-        override def check: Either[(FailedCase, SuccessCount), SuccessCount] = czech()
-    }
 }

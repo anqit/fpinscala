@@ -13,6 +13,10 @@ sealed trait Stream[+A] {
         case Cons(h, t) => if(n > 0) Cons(() => h(), () => t().take(n - 1)) else Empty
     }
 
+    def find(p: A => Boolean): Option[A] = this match {
+        case Empty => None
+        case Cons(h, t) => if(p(h())) Some(h()) else t().find(p)
+    }
      
     def take_tr(n: Int): Stream[A] = {
         val buf = new collection.mutable.ListBuffer[A]
@@ -96,6 +100,10 @@ sealed trait Stream[+A] {
             case Cons(h, t) if p(h()) => Some(h() -> t()) 
             case _ => None
         }
+
+    
+    def zip[B](bs: Stream[B]): Stream[(A, B)] =
+        zipWith_u(bs)((_, _))
 
     def zipWith_u[B, C](bs: Stream[B])(f: (A, B) => C): Stream[C] = unfold((this, bs)) {
             case (Empty, _) | (_, Empty) => None
