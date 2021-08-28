@@ -1,3 +1,5 @@
+import scala.{None, Some}
+
 object Chapter3 {
     def exercise1 = List(1, 2, 3, 4, 5)  match {
         case x :: 2 :: 4 :: _ => x
@@ -13,8 +15,8 @@ object Chapter3 {
     }
 
     def maybeTail[A](as: List[A]): Option[List[A]] = as match {
-        case Nil => None
-        case _ :: t => Some(t)
+        case _ :: t => scala.Some(t)
+        case Nil => scala.None
     }
 
     def setHead[A](as: List[A], a: A): Option[List[A]] = maybeTail(as).map(a :: _)

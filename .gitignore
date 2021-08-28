@@ -9,3 +9,6 @@
 *.swn
 *.iml
 out/
+**/*/target/
+target/
+project/target
