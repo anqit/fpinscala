@@ -100,11 +100,18 @@ object Par {
         join(map(pa)(f))
 
     def joinViaFlatMap[A](pa: Par[Par[A]]): Par[A] = chooser(pa)(a => a)
-
+    
+    def equal[A, B](a: Par[A], b: Par[B]): Par[Boolean] =
+        Par.map2(a, b)(_ == _)
 }
 
 abstract class ExecutorService {
     def submit[A](a: => A): Future[A]
+}
+object ExecutorService {
+    val default = new ExecutorService {
+        override def submit[A](a: => A): Future[A] = UnitFuture(a)
+    }
 }
 
 trait Future[A] { self =>
@@ -161,9 +168,8 @@ case class UnitFuture[A](get: A) extends Future[A] {
 
 object Main {
     def main(args: Array[String]): Unit = {
-        val es = new ExecutorService {
-            override def submit[A](a: => A): Future[A] = UnitFuture(a)
-        }
+        val es = ExecutorService.default
+
         val ints = IndexedSeq(3, 6, 9, 100, -4)
 
         val max = Par.max(ints)(es).get

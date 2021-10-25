@@ -1,12 +1,17 @@
 package Chapter8
 
 import Chapter5.Stream
-import Chapter6.{RNG, SimpleRNG, State}
-import Chapter8.Prop.{FailedCase, MaxSize, SuccessCount, TestCases}
-
-// trait Gen[A]
+import Chapter6.{ RNG, SimpleRNG, State }
+import Chapter7.{ ExecutorService, Par }
+import Chapter7.Par.Par
+import Chapter8.Prop.{ FailedCase, MaxSize, SuccessCount, TestCases }
 
 case class Gen[A](sample: State[RNG, A]) {
+    def map2[B, C](gb: Gen[B])(f: (A, B) => C): Gen[C] =
+        Gen(sample.flatMap(a => gb.sample.map(b => f(a, b))))
+
+    def **[B](g: Gen[B]): Gen[(A, B)] = (this map2 g) ((_, _))
+
     def flatMap[B](f: A => Gen[B]): Gen[B] =
         Gen(sample.flatMap { f(_).sample })
 
@@ -19,13 +24,16 @@ case class Gen[A](sample: State[RNG, A]) {
     def unsized: SGen[A] = SGen { _ => this }
 }
 
+object ** {
+    def unapply[A, B](p: (A, B)): Option[(A, B)] = Some(p)
+}
+
 object Gen {
     def listOf[A](a: Gen[A]): SGen[List[A]] =
         SGen(n => a.listOfN(n))
 
     def listOf1[A](a: Gen[A]): SGen[List[A]] =
         SGen(n => a.listOfN(n max 1))
-
 
     def forAll[A](a: Gen[A], tag: String)(f: A => Boolean): Prop =
         Prop(tag) {
@@ -47,19 +55,24 @@ object Gen {
         val props: Stream[Prop] = Stream.from(0).take((n min max) + 1).map(i => forAll(g(i), tag)(f))
         val prop: Prop =
             props.map(p =>
-                Prop(tag) { (max, _, rng) => p.run(max, casesPerSize, rng) }
+                Prop(tag) { (max, _, rng) => p.run(max, casesPerSize, rng) },
             ).toList.reduce(_ && _)
 
         prop.run(max, n, rng)
     }
+
+    val S = unit(ExecutorService.default)
+
+    def forAllPar[A](g: Gen[A], tag: String)(f: A => Par[Boolean]): Prop =
+        forAll(S ** g, tag) { case s ** a => f(a)(s).get }
 
     def randomStream[A](g: Gen[A])(rng: RNG): Stream[A] =
         Stream.unfold(rng) { n => Some(g.sample.run(n)) }
 
     def buildMessage[A](s: A, e: Exception): String =
         s"test case: $s\n" +
-          s"caused exception: ${e.getMessage}\n" +
-          s"stack trace:\n ${e.getStackTrace.mkString("\n")}"
+          s"caused exception: ${ e.getMessage }\n" +
+          s"stack trace:\n ${ e.getStackTrace.mkString("\n") }"
 
     def choose(start: Int, stopExcl: Int): Gen[Int] = {
         val rand = RNG.map(RNG.nonNegativeLessThan(stopExcl - start)) { _ + start }
@@ -78,7 +91,7 @@ object Gen {
     def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] = {
         val sample: RNG => (List[A], RNG) = rng => {
             var next = rng
-            var as = for {
+            val as = for {
                 _ <- 1 to n
                 (a, s: RNG) = g.sample.run(next)
             } yield {
@@ -98,13 +111,13 @@ object Gen {
     def map[A, B](g: Gen[A])(f: A => B): Gen[B] = Gen(g.sample.map(f))
 
     def union[A](g1: Gen[A], g2: Gen[A]): Gen[A] =
-        boolean.flatMap { if(_) g1 else g2 }
+        boolean.flatMap { if (_) g1 else g2 }
 
     def weighted[A](g1: (Gen[A], Double), g2: (Gen[A], Double)): Gen[A] = {
         val g1Threshold = g1._2.abs / (g1._2.abs + g2._2.abs) * Int.MaxValue.toDouble
 
         Gen(State(RNG.double(_)) flatMap { n =>
-          if(n < g1Threshold) g1._1.sample else g2._1.sample
+            if (n < g1Threshold) g1._1.sample else g2._1.sample
         })
     }
 }
@@ -119,7 +132,7 @@ case class SGen[A](forSize: Int => Gen[A]) {
     }
 
     def map[B](f: A => B): SGen[B] = SGen { n =>
-      Gen.map(forSize(n))(f)
+        Gen.map(forSize(n))(f)
     }
 }
 
@@ -135,18 +148,24 @@ object SGen {
 sealed trait Result {
     def isFalsified: Boolean
 }
+
 case object Passed extends Result {
-    override def isFalsified: Boolean = false
+    override val isFalsified: Boolean = false
 }
+
 case class Falsified(failure: FailedCase, successes: SuccessCount, tag: String = "") extends Result {
-    override def isFalsified: Boolean = true
+    override val isFalsified: Boolean = true
+}
+
+case object Proved extends Result {
+    override val isFalsified = false
 }
 
 case class Prop(val tag: String = "")(val run: (MaxSize, TestCases, RNG) => Result) {
     def &&(p: Prop): Prop = Prop(tag) { (maxSize, n, rng) =>
         run(maxSize, n, rng) match {
             case f: Falsified => f
-            case Passed => p.run(maxSize, n, rng)
+            case _ => p.run(maxSize, n, rng)
         }
     }
 
@@ -165,35 +184,55 @@ object Prop {
     type MaxSize = Int
 
     def run(p: Prop,
-            maxSize: MaxSize = 100,
-            testCases: TestCases = 100,
-            rng: RNG = SimpleRNG(System.currentTimeMillis())): Unit =
+      maxSize: MaxSize = 100,
+      testCases: TestCases = 100,
+      rng: RNG = SimpleRNG(System.currentTimeMillis()),
+    ): Unit =
         p.run(maxSize, testCases, rng) match {
-            case Falsified(msg, n, tag) => println(s"! falsified prop ${p.tag} after $n passed tests:\n\t$msg")
-            case Passed => println(s"+ OK, prop ${p.tag} passed $testCases tests")
-
+            case Falsified(msg, n, tag) =>
+                println(s"! Falsified prop ${ p.tag } after $n passed tests:\n\t$msg")
+            case Passed =>
+                println(s"+ OK, prop ${ p.tag } passed $testCases tests")
+            case Proved =>
+                println(s"+ OK, proved property")
         }
+
+    def check(p: => Boolean, tag: String = ""): Prop = Prop(tag) { (_, _, _) =>
+        if (p) Proved else Falsified("()", 0, tag)
+    }
+
+    def checkPar(par: Par[Boolean], tag: String = ""): Prop =
+        Gen.forAllPar(Gen.unit(()), tag)(_ => par)
 
     def main(args: Array[String]): Unit = {
         val smallInt = Gen.choose(-10, 10)
         val maxProp = Gen.forAll(Gen.listOf1(smallInt), "max test") { ns =>
-          val max = ns.max
-          !ns.exists(_ > max)
+            val max = ns.max
+            !ns.exists(_ > max)
         }
 
         run(maxProp)
 
         val sortedProp = Gen.forAll(Gen.unit(List(2, 1, 4, 3)), "sorted test") { ns =>
-          val sorted = ns.sorted
-          sorted == List(1, 2, 3, 4)
+            val sorted = ns.sorted
+            sorted == List(1, 2, 3, 4)
 
-          val max = ns.max
-          max == sorted(ns.size - 1)
+            val max = ns.max
+            max == sorted(ns.size - 1)
 
-          val min = ns.min
-          min == sorted(0)
+            val min = ns.min
+            min == sorted(0)
         }
 
         run(sortedProp)
+
+        val ex = scala.concurrent.ExecutionContext.Implicits.global
+        val parProp = Prop.check ({
+            Par.equal(
+                Par.map(Par.unit(1))(_ + 1),
+                Par.unit(2))(ExecutorService.default).get
+        }, "par test")
+
+        run(parProp)
     }
 }
