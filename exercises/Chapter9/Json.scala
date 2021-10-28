@@ -29,11 +29,19 @@ object JsonParser {
         val arrayParser: Parser[JArray] = ???
         val objParser: Parser[JObject] = ???
 
+
+        def findParser(indicator: String): Parser[Json] = indicator(0).toLower match {
+            case 'n' => nullParser
+            //case raw"\d|-.*".r => numParser
+            case '"' => stringParser
+            case 't' | 'f' => boolParser
+            case '[' => arrayParser
+            case '{' => objParser
+            case _ => throw new Exception("don't know what this is") // todo throw
+        }
+
         val valParser: Parser[Json] = regex(".".r).flatMap(findParser(_))
 
-        def findParser(indicator: String): Parser[Json] = indicator match {
-            case "\"" => stringParser
-            case raw"\d|-".r =>
-        }
+        valParser
     }
 }
