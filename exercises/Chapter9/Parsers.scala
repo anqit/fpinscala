@@ -11,19 +11,22 @@ trait Parsers[ParseError, Parser[+_]] { self =>
     def char(c: Char): Parser[Char] =
         string(c.toString) map { _.charAt(0) }
 
-    def or[A](p1: Parser[A], p2: Parser[A]): Parser[A]
+    def or[A](p1: Parser[A], p2: => Parser[A]): Parser[A]
 
-    def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]]
+    def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]] = n match {
+        case x if x > 0 => map2(p, listOfN(n - 1, p))(_ :: _)
+        case _ => succeed(Nil)
+    }
 
-    def product[A, B](p1: Parser[A], p2: Parser[B]): Parser[(A, B)]
+    def product[A, B](p1: Parser[A], p2: => Parser[B]): Parser[(A, B)]
 
     def succeed[A](a: A): Parser[A] =
         string("") map { _ => a}
 
-    // temp
     def filter[A](p: Parser[A])(f: A => Boolean): Parser[A]
 
-    def many[A](p: Parser[A]): Parser[List[A]]
+    def many[A](p: Parser[A]): Parser[List[A]] =
+        map2(p, many(p))(_ :: _) or succeed(Nil)
 
     def any(a: Parser[String]): Parser[Int] =
         map(many(a))(_.length)
@@ -36,8 +39,8 @@ trait Parsers[ParseError, Parser[+_]] { self =>
 
     def map[A, B](p: Parser[A])(f: A => B): Parser[B]
 
-    def map2[A, B, C](pa: Parser[A], pb: Parser[B])(f: (A, B) => C): Parser[C] =
-        product(pa, pb) map { case (a, b) => f(a, b) }
+    def map2[A, B, C](pa: Parser[A], pb: => Parser[B])(f: (A, B) => C): Parser[C] =
+        product(pa, pb) map f.tupled
 
     def many1[A](p: Parser[A]): Parser[List[A]] =
         map2(p, many(p))(_ :: _)
@@ -46,6 +49,8 @@ trait Parsers[ParseError, Parser[+_]] { self =>
     def slice[A](p: Parser[A]): Parser[String]
 
     def run[A](p: Parser[A])(input: String): Either[ParseError, A]
+
+    def lazy[A](p: => Parser[A]): Parser[A]
 
     case class ParserOps[A](p: Parser[A]) {
         def |[B >: A](p2: Parser[B]): Parser[B] = self.or(p, p2)
