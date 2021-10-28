@@ -36,6 +36,9 @@ trait Parsers[ParseError, Parser[+_]] { self =>
     def atLeastOne(a: Parser[String]): Parser[Int] =
         filter(any(a))(_ > 0)
 
+    def atMostOne[A](a: Parser[A]): Parser[Option[A]] =
+        listOfN(1, a).map { _.headOption }
+
     def andThen(first: Parser[String])(second: Parser[String]): Parser[(Int, Int)] =
         map2(any(first), any(second))((_, _))
 
@@ -84,6 +87,9 @@ trait Parsers[ParseError, Parser[+_]] { self =>
 
         def + = self.many1(p)
         def many1 = self.many1(p)
+
+        def ? = self.atMostOne(p)
+        def atMostOne = self.atMostOne(p)
 
         def **[B](p2: Parser[B]) = self.product(p, p2)
         def product[B](p2: Parser[B]) = self.product(p, p2)
