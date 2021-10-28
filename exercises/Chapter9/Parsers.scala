@@ -61,7 +61,7 @@ trait Parsers[ParseError, Parser[+_]] { self =>
     def contextSensitiveCount[A](p: Parser[A]): Parser[List[A]] =
         //flatMap("\\d+".r.map(_.toInt))(listOfN(_, p))
         for {
-            digits <- "\\d+".r
+            digits <- raw"\d+".r
             num = digits.toInt
             l <- listOfN(num, p)
         } yield l
@@ -111,9 +111,9 @@ trait Parsers[ParseError, Parser[+_]] { self =>
         // 2. run(succeed(a) ** succeed(b))(_) = (a, b)
         // 3. run(string(s1) ** string(s2))(s1 + s2 + ...) = (s1, s2) ==> need two gens?
         // 4.
-        //        given some input s
-        //        val sliceA = run(slice(parserA))(s) // <- assuming this succeeds
-        //        val rest = s - sliceA // <- remove sliceA from beginning of s
+        //      given some input s
+        //      val sliceA = run(slice(parserA))(s) // <- assuming this succeeds
+        //      val rest = s - sliceA // <- remove sliceA from beginning of s
         //      run(parserA ** parserB)(s) = (sliceA, run(slice(parserB))(rest))
     }
 }
