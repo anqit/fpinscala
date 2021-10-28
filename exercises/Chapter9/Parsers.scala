@@ -2,23 +2,25 @@ package Chapter9
 
 import Chapter8.{ Gen, Prop }
 
+import scala.util.matching.Regex
+
 trait Parsers[ParseError, Parser[+_]] { self =>
     implicit def string(s: String): Parser[String]
     implicit def operators[A](p: Parser[A]) = ParserOps[A](p)
     implicit def asStringParser[A](a: A)(implicit f: A => Parser[String]): ParserOps[String] =
         ParserOps(f(a))
+    implicit def regex(r: Regex): Parser[String]
 
     def char(c: Char): Parser[Char] =
         string(c.toString) map { _.charAt(0) }
-
-    def or[A](p1: Parser[A], p2: => Parser[A]): Parser[A]
 
     def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]] = n match {
         case x if x > 0 => map2(p, listOfN(n - 1, p))(_ :: _)
         case _ => succeed(Nil)
     }
 
-    def product[A, B](p1: Parser[A], p2: => Parser[B]): Parser[(A, B)]
+    def product[A, B](p1: Parser[A], p2: => Parser[B]): Parser[(A, B)] =
+        flatMap(p1)(a => p2.map(b => (a, b)))
 
     def succeed[A](a: A): Parser[A] =
         string("") map { _ => a}
@@ -35,27 +37,44 @@ trait Parsers[ParseError, Parser[+_]] { self =>
         filter(any(a))(_ > 0)
 
     def andThen(first: Parser[String])(second: Parser[String]): Parser[(Int, Int)] =
-        map2(any(first), any(second))((_, _)) // TODO: not exactly, need to shrink input...
+        map2(any(first), any(second))((_, _))
 
-    def map[A, B](p: Parser[A])(f: A => B): Parser[B]
+    def flatMap[A, B](p1: Parser[A])(f: A => Parser[B]): Parser[B]
+
+    def map[A, B](p: Parser[A])(f: A => B): Parser[B] =
+        flatMap(p)(a => succeed(f(a)))
 
     def map2[A, B, C](pa: Parser[A], pb: => Parser[B])(f: (A, B) => C): Parser[C] =
         product(pa, pb) map f.tupled
 
+    def map2_flatMap[A, B, C](pa: Parser[A], pb: => Parser[B])(f: (A, B) => C): Parser[C] =
+        flatMap(pa)(a => map(pb)(b => f(a, b)))
+
     def many1[A](p: Parser[A]): Parser[List[A]] =
         map2(p, many(p))(_ :: _)
+
+    def or[A](p1: Parser[A], p2: => Parser[A]): Parser[A]
 
     // returns matching portion of input
     def slice[A](p: Parser[A]): Parser[String]
 
+    def contextSensitiveCount[A](p: Parser[A]): Parser[List[A]] =
+        //flatMap("\\d+".r.map(_.toInt))(listOfN(_, p))
+        for {
+            digits <- "\\d+".r
+            num = digits.toInt
+            l <- listOfN(num, p)
+        } yield l
+
     def run[A](p: Parser[A])(input: String): Either[ParseError, A]
 
-    def lazy[A](p: => Parser[A]): Parser[A]
+    def nonStrict[A](p: => Parser[A]): Parser[A]
 
     case class ParserOps[A](p: Parser[A]) {
         def |[B >: A](p2: Parser[B]): Parser[B] = self.or(p, p2)
         def or[B >: A](p2: Parser[B]): Parser[B] = self.or(p, p2)
 
+        def flatMap[B](f: A => Parser[B]) = self.flatMap(p)(f)
         def map[B](f: A => B): Parser[B] = self.map(p)(f)
 
         def slice: Parser[String] = self.slice(p)
