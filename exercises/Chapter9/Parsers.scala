@@ -22,6 +22,10 @@ trait Parsers[ParseError, Parser[+_]] { self =>
     def product[A, B](p1: Parser[A], p2: => Parser[B]): Parser[(A, B)] =
         flatMap(p1)(a => p2.map(b => (a, b)))
 
+    def left[A, B](p: Parser[(A, B)]): Parser[A] = p.map(_._1)
+
+    def right[A, B](p: Parser[(A, B)]): Parser[B] = p.map(_._2)
+
     def succeed[A](a: A): Parser[A] =
         string("") map { _ => a}
 
@@ -93,6 +97,9 @@ trait Parsers[ParseError, Parser[+_]] { self =>
 
         def **[B](p2: Parser[B]) = self.product(p, p2)
         def product[B](p2: Parser[B]) = self.product(p, p2)
+
+        def <**[B](p2: Parser[B]): Parser[A] = self.left(product(p2))
+        def **>[B](p2: Parser[B]): Parser[B] = self.right(product(p2))
     }
 
     val numA: Parser[Int] = char('a').*.map(_.size)
