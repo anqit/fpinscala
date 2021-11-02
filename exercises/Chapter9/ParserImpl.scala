@@ -1,55 +1,82 @@
 package Chapter9
 
+import Chapter9.ParserTypes._
+
 import scala.util.matching.Regex
 
-abstract class ParserImpl[+A](val errorMessage: String) {
-    def run(input: String): Either[ParseError, A]
+object ParserTypes {
+    type Parser[+A] = Location => Result[A]
+
+    trait Result[+A] {
+        def mapError(f: ParseError => ParseError): Result[A] = this match {
+            case Failure(e) => Failure(f(e))
+            case _ => this
+        }
+    }
+    case class Success[+A](get: A, consumed: Int) extends Result[A]
+    case class Failure(get: ParseError) extends Result[Nothing]
 }
 
-object Parser extends Parsers[ParserImpl] {
-    implicit def string(s: String): ParserImpl[String] = new ParserImpl[String]("strings didn't match") {
-        override def run(input: String): Either[ParseError, String] = {
-            def go(expected: List[Char], test: List[Char], offset: Int = 0): Either[ParseError, String] = (expected, test) match {
-                case (Nil, Nil) => Right(s)
-                case (ehead :: etail, thead :: ttail) if ehead == thead =>
-                     go(etail, ttail, offset + 1)
-                case _ => Left(ParseError(Location(input, offset), errorMessage))
+object ParsersImpl extends Parsers[Parser] {
+    private def compareString(input: String, pattern: String, offset: Int) = {
+        def go(i: List[Char], p: List[Char], eoffset: Int = 0): Result[String] = (i, p) match {
+            case (_, Nil) =>
+                Success(pattern, pattern.length)
+            case (Nil, _) =>
+                Failure(ParseError(Location(input, offset + eoffset), "unexpected eof"))
+            case (ihead :: itail, phead :: ptail) if ihead == phead =>
+                go(itail, ptail, offset + 1)
+            case (ihead :: _, phead :: _) =>
+                Failure(ParseError(Location(input, offset + eoffset), s"expected $phead, found $ihead"))
+        }
+
+        go(input.slice(offset, input.length).toList, pattern.toList)
+    }
+
+    override def string(s: String): Parser[String] = scope(s"input did not match $s") {
+        case Location(input, offset) =>
+            compareString(input, s, offset)
+    }
+
+
+    override def regex(r: Regex): Parser[String] = {
+        case Location(input, offset) =>
+            input match {
+                case r(m) => Success(m, m.length)
+                case _ => Failure(ParseError(Location(input, offset), "regex didn't match"))
             }
-
-            go(s.toList, input.toList)
-        }
     }
 
-    implicit def regex(r: Regex): ParserImpl[String] =  new ParserImpl[String]("regex doesn't match") {
-        override def run(input: String): Either[ParseError, String] = input match {
-            case r(m) => Right(m)
-            case _ => Left(ParseError(Location(input, 0), errorMessage))
-        }
+    override def succeed[A](a: A): Parser[A] = {
+        case Location(input, offset) =>
+            Success(a, input.length)
     }
 
-    def attempt[A](p: ParserImpl[A]): ParserImpl[A] = ???
+    def slice[A](p: Parser[A]): Parser[String] = {
+        case l @ Location(input, offset) =>
+            p(l) match {
+                case Success(_, consumed) => Success(input.slice(offset, offset + consumed), consumed)
+                case f @ Failure(_) => f
+            }
+    }
+
+    def attempt[A](p: Parser[A]): Parser[A] = ???
 
     def errorLocation(e: ParseError): Location = e.stack.head._1
 
     def errorMessage(e: ParseError): String = e.stack.head._2
 
-    def filter[A](p: ParserImpl[A])(f: A => Boolean): ParserImpl[A] = new ParserImpl[A](p.errorMessage) {
-        override def run(input: String): Either[ParseError, A] = p.run(input) match {
-            case r @ Right(a) => if (f(a)) r else Left(ParseError(Location(input, 0), "parsed value failed predicate"))
-            case l => l
-        }
-    }
+    def filter[A](p: Parser[A])(f: A => Boolean): Parser[A] = ???
 
-    def flatMap[A, B](p1: ParserImpl[A])(f: A => ParserImpl[B]): ParserImpl[B] = new ParserImpl[B](p1.errorMessage) {
-        override def run(input: String): Either[ParseError, B] = p1.run(input) match {
-            case r @ Right(a) => f(a).run(input) // todo trim input?
-            case Left(e) => Left(e)
-        }
-    }
-    def label[A](msg: String)(p: ParserImpl[A]): ParserImpl[A] = ???
-    def nonStrict[A](p: => ParserImpl[A]): ParserImpl[A] = ???
-    def or[A](p1: ParserImpl[A], p2: => ParserImpl[A]): ParserImpl[A] = ???
-    def run[A](p: ParserImpl[A])(input: String): Either[ParseError,A] = ???
-    def scope[A](msg: String)(p: ParserImpl[A]): ParserImpl[A] = ???
-    def slice[A](p: ParserImpl[A]): ParserImpl[String] = ???
+    def flatMap[A, B](p1: Parser[A])(f: A => Parser[B]): Parser[B] = ???
+
+    def nonStrict[A](p: => Parser[A]): Parser[A] = ???
+    def or[A](p1: Parser[A], p2: => Parser[A]): Parser[A] = ???
+    def run[A](p: Parser[A])(input: String): Either[ParseError,A] = ???
+
+    def label[A](msg: String)(p: Parser[A]): Parser[A] = l =>
+      p(l) mapError { _.label(msg) }
+
+    def scope[A](msg: String)(p: Parser[A]): Parser[A] = l =>
+      p(l).mapError(_.push(l, msg))
 }

@@ -26,8 +26,8 @@ trait Parsers[Parser[+_]] { self =>
 
     def right[A, B](p: Parser[(A, B)]): Parser[B] = p.map(_._2)
 
-    def succeed[A](a: A): Parser[A] =
-        string("") map { _ => a}
+    def succeed[A](a: A): Parser[A]
+        //string("") map { _ => a}
 
     def filter[A](p: Parser[A])(f: A => Boolean): Parser[A]
 
@@ -141,12 +141,24 @@ trait Parsers[Parser[+_]] { self =>
     }
 }
 
-case class ParseError(stack: List[(Location, String)]) {
+case class ParseError private (stack: List[(Location, String)] = List()) {
     def this(l: Location, s: String) = this(List((l, s)))
+
+    def push(loc: Location, msg: String): ParseError =
+        copy(stack = (loc, msg) :: stack)
+
+    def label[A](s: String): ParseError =
+        ParseError(latestlLoc.map((_, s)).toList)
+
+    def latestlLoc: Option[Location] =
+        latest map (_._1)
+
+    def latest: Option[(Location, String)] =
+        stack.lastOption
 }
 
 object ParseError {
-    def apply(l: Location, s: String) = new ParseError(List((l, s)))
+    def apply(l: Location, s: String) = new ParseError().push(l, s)
 }
 
 case class Location(input: String, offset: Int = 0) {
