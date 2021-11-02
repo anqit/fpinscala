@@ -141,7 +141,13 @@ trait Parsers[Parser[+_]] { self =>
     }
 }
 
-case class ParseError(stack: List[(Location, String)])
+case class ParseError(stack: List[(Location, String)]) {
+    def this(l: Location, s: String) = this(List((l, s)))
+}
+
+object ParseError {
+    def apply(l: Location, s: String) = new ParseError(List((l, s)))
+}
 
 case class Location(input: String, offset: Int = 0) {
     lazy val line = input.slice(0, offset + 1).count(_ == '\n') + 1
