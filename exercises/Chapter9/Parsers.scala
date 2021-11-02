@@ -4,7 +4,7 @@ import Chapter8.{ Gen, Prop }
 
 import scala.util.matching.Regex
 
-trait Parsers[ParseError, Parser[+_]] { self =>
+trait Parsers[Parser[+_]] { self =>
     implicit def string(s: String): Parser[String]
     implicit def operators[A](p: Parser[A]) = ParserOps[A](p)
     implicit def asStringParser[A](a: A)(implicit f: A => Parser[String]): ParserOps[String] =
@@ -66,7 +66,7 @@ trait Parsers[ParseError, Parser[+_]] { self =>
     def slice[A](p: Parser[A]): Parser[String]
 
     def contextSensitiveCount[A](p: Parser[A]): Parser[List[A]] =
-        //flatMap("\\d+".r.map(_.toInt))(listOfN(_, p))
+        // flatMap("\\d+".r.map(_.toInt))(listOfN(_, p))
         for {
             digits <- raw"\d+".r
             num = digits.toInt
@@ -76,6 +76,16 @@ trait Parsers[ParseError, Parser[+_]] { self =>
     def run[A](p: Parser[A])(input: String): Either[ParseError, A]
 
     def nonStrict[A](p: => Parser[A]): Parser[A]
+
+    def label[A](msg: String)(p: Parser[A]): Parser[A]
+
+    def scope[A](msg: String)(p: Parser[A]): Parser[A]
+
+    def attempt[A](p: Parser[A]): Parser[A]
+
+    def errorLocation(e: ParseError): Location
+
+    def errorMessage(e: ParseError): String
 
     case class ParserOps[A](p: Parser[A]) {
         def |[B >: A](p2: Parser[B]): Parser[B] = self.or(p, p2)
@@ -131,3 +141,12 @@ trait Parsers[ParseError, Parser[+_]] { self =>
     }
 }
 
+case class ParseError(stack: List[(Location, String)])
+
+case class Location(input: String, offset: Int = 0) {
+    lazy val line = input.slice(0, offset + 1).count(_ == '\n') + 1
+    lazy val col = input.slice(0, offset + 1).lastIndexOf('\n') match {
+        case -1 => offset + 1
+        case linestart => offset - linestart
+    }
+}

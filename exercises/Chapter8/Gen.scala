@@ -7,6 +7,9 @@ import Chapter7.Par.Par
 import Chapter8.Prop.{ FailedCase, MaxSize, SuccessCount, TestCases }
 
 case class Gen[A](sample: State[RNG, A]) {
+    def map[B](f: A => B): Gen[B] =
+        Gen(sample.map(f))
+
     def map2[B, C](gb: Gen[B])(f: (A, B) => C): Gen[C] =
         Gen(sample.flatMap(a => gb.sample.map(b => f(a, b))))
 
@@ -107,6 +110,14 @@ object Gen {
 
     def listOfN_book[A](n: Int, g: Gen[A]): Gen[List[A]] =
         Gen(State.sequence(List.fill(n)(g.sample)))
+
+    /* Not the most efficient implementation, but it's simple.
+     * This generates ASCII strings.
+    */
+    def stringN(n: Int): Gen[String] =
+        listOfN(n, choose(0, 127)).map(_.map(_.toChar).mkString)
+
+    val string: SGen[String] = SGen(stringN)
 
     def map[A, B](g: Gen[A])(f: A => B): Gen[B] = Gen(g.sample.map(f))
 
@@ -227,7 +238,7 @@ object Prop {
         run(sortedProp)
 
         val ex = scala.concurrent.ExecutionContext.Implicits.global
-        val parProp = Prop.check ({
+        val parProp = Prop.check({
             Par.equal(
                 Par.map(Par.unit(1))(_ + 1),
                 Par.unit(2))(ExecutorService.default).get

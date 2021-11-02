@@ -23,7 +23,7 @@ object JsonParser {
 
     import Json._
 
-    def jsonParser[Err, Parser[+_]](P: Parsers[Err, Parser]): Parser[Json] = {
+    def jsonParser[Parser[+_]](P: Parsers[Parser]): Parser[Json] = {
         import P._
 
         lazy val spaces: Parser[String] = char(' ').*.slice
@@ -48,7 +48,7 @@ object JsonParser {
             val elemsParser: Parser[C] = (elemParser <** comma).* map { toColl }
 
             val nonEmptyCsvParser: Parser[J] =
-                prefix **> elemsParser.**(elemParser <** suffix) map { joiner.tupled } map { toJson }
+                prefix **> elemsParser ** elemParser <** suffix map { joiner.tupled } map { toJson }
 
             emptyCsvParser | nonEmptyCsvParser
         }
