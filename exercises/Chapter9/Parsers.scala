@@ -110,6 +110,8 @@ trait Parsers[Parser[+_]] { self =>
 
         def <**[B](p2: Parser[B]): Parser[A] = self.left(product(p2))
         def **>[B](p2: Parser[B]): Parser[B] = self.right(product(p2))
+
+        def run(input: String): Either[ParseError, A] = self.run(p)(input)
     }
 
     val numA: Parser[Int] = char('a').*.map(_.size)
@@ -167,4 +169,6 @@ case class Location(input: String, offset: Int = 0) {
         case -1 => offset + 1
         case linestart => offset - linestart
     }
+
+    def advanceBy(n: Int): Location = copy(offset = offset + n)
 }

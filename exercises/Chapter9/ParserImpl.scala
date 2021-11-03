@@ -9,12 +9,27 @@ object ParserTypes {
 
     trait Result[+A] {
         def mapError(f: ParseError => ParseError): Result[A] = this match {
-            case Failure(e) => Failure(f(e))
+            case Failure(e, committed) => Failure(f(e), committed)
             case _ => this
+        }
+
+        def uncommit: Result[A] = this match {
+            case Failure(e, true) => Failure(e, false)
+            case _ => this
+        }
+
+        def addCommit(committed: Boolean): Result[A] = this match {
+            case Failure(e, c) => Failure(e, c || committed)
+            case _ => this
+        }
+
+        def advanceSuccess(n: Int): Result[A] = this match {
+            case Success(a, consumed) => Success(a, consumed + n)
+            case r => r
         }
     }
     case class Success[+A](get: A, consumed: Int) extends Result[A]
-    case class Failure(get: ParseError) extends Result[Nothing]
+    case class Failure(get: ParseError, isCommitted: Boolean = true) extends Result[Nothing]
 }
 
 object ParsersImpl extends Parsers[Parser] {
@@ -56,27 +71,49 @@ object ParsersImpl extends Parsers[Parser] {
         case l @ Location(input, offset) =>
             p(l) match {
                 case Success(_, consumed) => Success(input.slice(offset, offset + consumed), consumed)
-                case f @ Failure(_) => f
+                case f : Failure => f
             }
     }
 
-    def attempt[A](p: Parser[A]): Parser[A] = ???
+    def attempt[A](p: Parser[A]): Parser[A] = l => p(l).uncommit
 
     def errorLocation(e: ParseError): Location = e.stack.head._1
 
     def errorMessage(e: ParseError): String = e.stack.head._2
 
-    def filter[A](p: Parser[A])(f: A => Boolean): Parser[A] = ???
+    def filter[A](p: Parser[A])(f: A => Boolean): Parser[A] = loc => p(loc) match {
+        case s @ Success(a, _) if f(a) => s
+        case Success(_, consumed) => Failure(ParseError(loc.advanceBy(consumed), "filter failed"), true)
+        case f: Failure => f
+    }
 
-    def flatMap[A, B](p1: Parser[A])(f: A => Parser[B]): Parser[B] = ???
+    def flatMap[A, B](p1: Parser[A])(f: A => Parser[B]): Parser[B] = l => p1(l) match {
+        case Success(a, consumed) => f(a)(l.advanceBy(consumed)).addCommit(consumed != 0).advanceSuccess(consumed)
+        case f : Failure => f
+    }
 
     def nonStrict[A](p: => Parser[A]): Parser[A] = ???
-    def or[A](p1: Parser[A], p2: => Parser[A]): Parser[A] = ???
-    def run[A](p: Parser[A])(input: String): Either[ParseError,A] = ???
+
+    def or[A](p1: Parser[A], p2: => Parser[A]): Parser[A] = l => p1(l) match {
+        case Failure(_, false) => p2(l)
+        case r => r
+    }
+
+    def run[A](p: Parser[A])(input: String): Either[ParseError, A] = p(Location(input, 0)) match {
+        case Success(a, _) => Right(a)
+        case Failure(e, _) => Left(e)
+    }
 
     def label[A](msg: String)(p: Parser[A]): Parser[A] = l =>
       p(l) mapError { _.label(msg) }
 
     def scope[A](msg: String)(p: Parser[A]): Parser[A] = l =>
       p(l).mapError(_.push(l, msg))
+}
+
+object Main extends App {
+    import ParsersImpl._
+
+    val jsonParser = JsonParser.jsonParser(ParsersImpl)
+    println(jsonParser.run(""))
 }
