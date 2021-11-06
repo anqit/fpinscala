@@ -92,7 +92,7 @@ object ParsersImpl extends Parsers[Parser] {
         case f : Failure => f
     }
 
-    def nonStrict[A](p: => Parser[A]): Parser[A] = ???
+    def nonStrict[A](p: => Parser[A]): Parser[A] = p
 
     def or[A](p1: Parser[A], p2: => Parser[A]): Parser[A] = l => p1(l) match {
         case Failure(_, false) => p2(l)

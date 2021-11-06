@@ -31,7 +31,7 @@ trait Parsers[Parser[+_]] { self =>
 
     def filter[A](p: Parser[A])(f: A => Boolean): Parser[A]
 
-    def many[A](p: Parser[A]): Parser[List[A]] =
+    def many[A](p: => Parser[A]): Parser[List[A]] =
         map2(p, many(p))(_ :: _) or succeed(Nil)
 
     def any(a: Parser[String]): Parser[Int] =
@@ -87,6 +87,12 @@ trait Parsers[Parser[+_]] { self =>
 
     def errorMessage(e: ParseError): String
 
+    def enclose[A](open: Parser[_], close: Parser[_])(p: => Parser[A]): Parser[A] =
+        open **> p <** close
+
+    def delimited[A](delimiter: Parser[_])(p: => Parser[A]): Parser[List[A]] =
+        p.mapWith(many(delimiter **> p))(_ :: _) or succeed(List())
+
     case class ParserOps[A](p: Parser[A]) {
         def |[B >: A](p2: Parser[B]): Parser[B] = self.or(p, p2)
         def or[B >: A](p2: Parser[B]): Parser[B] = self.or(p, p2)
@@ -105,11 +111,13 @@ trait Parsers[Parser[+_]] { self =>
         def ? = self.atMostOne(p)
         def atMostOne = self.atMostOne(p)
 
-        def **[B](p2: Parser[B]) = self.product(p, p2)
-        def product[B](p2: Parser[B]) = self.product(p, p2)
+        def **[B](p2: => Parser[B]) = self.product(p, p2)
+        def product[B](p2: => Parser[B]) = self.product(p, p2)
 
-        def <**[B](p2: Parser[B]): Parser[A] = self.left(product(p2))
-        def **>[B](p2: Parser[B]): Parser[B] = self.right(product(p2))
+        def mapWith[B, C](p2: Parser[B])(f: (A, B) => C) = self.map2(p, p2)(f)
+
+        def <**[B](p2: => Parser[B]): Parser[A] = self.left(product(p2))
+        def **>[B](p2: => Parser[B]): Parser[B] = self.right(product(p2))
 
         def run(input: String): Either[ParseError, A] = self.run(p)(input)
     }
