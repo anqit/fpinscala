@@ -38,17 +38,17 @@ object ParsersImpl extends Parsers[Parser] {
             case (_, Nil) =>
                 Success(pattern, pattern.length)
             case (Nil, _) =>
-                Failure(ParseError(Location(input, offset + eoffset), "unexpected eof"))
+                Failure(ParseError(Location(input, offset + eoffset), "unexpected eof"), eoffset != 0)
             case (ihead :: itail, phead :: ptail) if ihead == phead =>
                 go(itail, ptail, offset + 1)
             case (ihead :: _, phead :: _) =>
-                Failure(ParseError(Location(input, offset + eoffset), s"expected $phead, found $ihead"))
+                Failure(ParseError(Location(input, offset + eoffset), s"expected '$phead', found '$ihead'"), eoffset != 0)
         }
 
         go(input.slice(offset, input.length).toList, pattern.toList)
     }
 
-    override def string(s: String): Parser[String] = scope(s"input did not match $s") {
+    override def string(s: String): Parser[String] = scope(s"input did not match '$s'") {
         case Location(input, offset) =>
             compareString(input, s, offset)
     }
@@ -56,16 +56,14 @@ object ParsersImpl extends Parsers[Parser] {
 
     override def regex(r: Regex): Parser[String] = {
         case Location(input, offset) =>
-            input match {
-                case r(m) => Success(m, m.length)
-                case _ => Failure(ParseError(Location(input, offset), "regex didn't match"))
+            r.findPrefixOf(input.substring(offset)) match {
+                case Some(m) => Success(m, m.length)
+                case _ => Failure(ParseError(Location(input, offset), "regex didn't match"), false)
             }
     }
 
-    override def succeed[A](a: A): Parser[A] = {
-        case Location(input, offset) =>
-            Success(a, input.length)
-    }
+    override def succeed[A](a: A): Parser[A] =
+        _ => Success(a, 0)
 
     def slice[A](p: Parser[A]): Parser[String] = {
         case l @ Location(input, offset) =>
@@ -88,8 +86,9 @@ object ParsersImpl extends Parsers[Parser] {
     }
 
     def flatMap[A, B](p1: Parser[A])(f: A => Parser[B]): Parser[B] = l => p1(l) match {
-        case Success(a, consumed) => f(a)(l.advanceBy(consumed)).addCommit(consumed != 0).advanceSuccess(consumed)
-        case f : Failure => f
+        case Success(a, consumed) =>
+            f(a)(l.advanceBy(consumed)).addCommit(consumed != 0).advanceSuccess(consumed)
+        case e : Failure => e
     }
 
     def nonStrict[A](p: => Parser[A]): Parser[A] = p
@@ -112,8 +111,24 @@ object ParsersImpl extends Parsers[Parser] {
 }
 
 object Main extends App {
+
     import ParsersImpl._
 
-    val jsonParser = JsonParser.jsonParser(ParsersImpl)
-    println(jsonParser.run(""))
+    private val factory = JsonParserFactory(ParsersImpl)
+    val jsonParser = factory.jsonParser
+    //println(jsonParser.run(""))
+
+    val jsonTxt =
+        """
+        {
+          "Company name" : "Microsoft Corporation",
+          "Ticker"  : "MSFT",
+          "Active"  : true,
+          "Price"   : 30.66,
+          "Shares outstanding" : 8.38e9,
+          "Related companies" : [ "HPQ", "IBM", "YHOO", "DELL", "GOOG", {"test"     : ["nested"]} ]
+        }
+        """
+    println(jsonParser.run(jsonTxt))
+    println(factory.stringParser.run(""))
 }

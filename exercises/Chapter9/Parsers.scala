@@ -22,17 +22,19 @@ trait Parsers[Parser[+_]] { self =>
     def product[A, B](p1: Parser[A], p2: => Parser[B]): Parser[(A, B)] =
         flatMap(p1)(a => p2.map(b => (a, b)))
 
-    def left[A, B](p: Parser[(A, B)]): Parser[A] = p.map(_._1)
+    def left[A, B](p1: Parser[A], p2: => Parser[B]): Parser[A] =
+        map2(p1, p2)((a, _) => a)
 
-    def right[A, B](p: Parser[(A, B)]): Parser[B] = p.map(_._2)
+    def right[A, B](p1: Parser[A], p2: => Parser[B]): Parser[B] =
+        map2(p1, p2)((_, b) => b)
 
     def succeed[A](a: A): Parser[A]
         //string("") map { _ => a}
 
     def filter[A](p: Parser[A])(f: A => Boolean): Parser[A]
 
-    def many[A](p: => Parser[A]): Parser[List[A]] =
-        map2(p, many(p))(_ :: _) or succeed(Nil)
+    def many[A](p: Parser[A]): Parser[List[A]] =
+        map2(p, many(p))(_ :: _) or succeed(List())
 
     def any(a: Parser[String]): Parser[Int] =
         map(many(a))(_.length)
@@ -41,7 +43,7 @@ trait Parsers[Parser[+_]] { self =>
         filter(any(a))(_ > 0)
 
     def atMostOne[A](a: Parser[A]): Parser[Option[A]] =
-        listOfN(1, a).map { _.headOption }
+        listOfN(1, a) map { _.headOption }
 
     def andThen(first: Parser[String])(second: Parser[String]): Parser[(Int, Int)] =
         map2(any(first), any(second))((_, _))
@@ -90,12 +92,12 @@ trait Parsers[Parser[+_]] { self =>
     def enclose[A](open: Parser[_], close: Parser[_])(p: => Parser[A]): Parser[A] =
         open **> p <** close
 
-    def delimited[A](delimiter: Parser[_])(p: => Parser[A]): Parser[List[A]] =
+    def delimited[A](delimiter: Parser[_])(p: Parser[A]): Parser[List[A]] =
         p.mapWith(many(delimiter **> p))(_ :: _) or succeed(List())
 
     case class ParserOps[A](p: Parser[A]) {
-        def |[B >: A](p2: Parser[B]): Parser[B] = self.or(p, p2)
-        def or[B >: A](p2: Parser[B]): Parser[B] = self.or(p, p2)
+        def |[B >: A](p2: => Parser[B]): Parser[B] = self.or(p, p2)
+        def or[B >: A](p2: => Parser[B]): Parser[B] = self.or(p, p2)
 
         def flatMap[B](f: A => Parser[B]) = self.flatMap(p)(f)
         def map[B](f: A => B): Parser[B] = self.map(p)(f)
@@ -114,10 +116,14 @@ trait Parsers[Parser[+_]] { self =>
         def **[B](p2: => Parser[B]) = self.product(p, p2)
         def product[B](p2: => Parser[B]) = self.product(p, p2)
 
-        def mapWith[B, C](p2: Parser[B])(f: (A, B) => C) = self.map2(p, p2)(f)
+        def mapWith[B, C](p2: => Parser[B])(f: (A, B) => C) = self.map2(p, p2)(f)
 
-        def <**[B](p2: => Parser[B]): Parser[A] = self.left(product(p2))
-        def **>[B](p2: => Parser[B]): Parser[B] = self.right(product(p2))
+        def <**(p2: => Parser[_]): Parser[A] = self.left(p, p2)
+        def **>[B](p2: => Parser[B]): Parser[B] = self.right(p, p2)
+
+        def label(l: String): Parser[A] = self.label(l)(p)
+
+        def scope(s: String): Parser[A] = self.scope(s)(p)
 
         def run(input: String): Either[ParseError, A] = self.run(p)(input)
     }
@@ -128,6 +134,10 @@ trait Parsers[Parser[+_]] { self =>
 
     val zeroOrMoreAsThenSomeBs: Parser[(Int, Int)] =
          char('a').*.slice.map(_.size) ** char('b').+.slice.map(_.size)
+
+    def spaces: Parser[String] = "\\s*".r scope "whitespace"
+
+    def trim[A](p: Parser[A]): Parser[A] = (attempt(p) <** spaces) scope "trim"
 
     object Laws {
         def equal[A](p1: Parser[A], p2: Parser[A], tag: String = "parser equal law")(in: Gen[String]): Prop =
