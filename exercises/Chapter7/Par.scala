@@ -14,7 +14,7 @@ object Par {
 
     def fork[A](p: => Par[A]): Par[A] = es => es.submit(p(es).get)
 
-    def delay[A](p: => Par[A]): Par[A] = p // es => p(es)
+    def delay[A](p: => Par[A]): Par[A] = es => p(es) // p
 
     def map2[A, B, C](a: Par[A], b: Par[B])(f: (A, B) => C): Par[C] = es => {
             val af = a(es)
