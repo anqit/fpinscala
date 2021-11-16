@@ -20,7 +20,11 @@ object State {
     def unit[S, A](a: A): State[S, A] = State(s => (a, s))
 
     def map2[S, A, B, C](sa: State[S, A], sb: State[S, B])(f: (A, B) => C): State[S, C] =
-        sa.flatMap(a => sb.map(f(a, _)))
+        // sa.flatMap(a => sb.map(f(a, _)))
+        for {
+            a <- sa
+            b <- sb
+        } yield f(a, b)
 
     def sequence[S, A](sas: List[State[S, A]]): State[S, List[A]] =
         sas.foldRight(unit[S, List[A]](List[A]()))((sa, as) => map2(sa, as)(_ :: _))

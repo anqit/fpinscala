@@ -1,5 +1,6 @@
 package Chapter10
 
+import Chapter6.State
 import Chapter7.Par
 import Chapter7.Par.{ asyncF, Par }
 import Chapter8.{ Gen, Prop }
@@ -71,30 +72,35 @@ object Monoid {
         }
     }
 
-    def foldMap[A, B](as: List[A], m: Monoid[B])(f: A => B): B =
+    def foldMap[A, B](as: Seq[A], m: Monoid[B])(f: A => B): B =
         as.foldLeft(m.zero)((b, a) => m.op(b, f(a)))
 
     def isSorted[A](v: IndexedSeq[A])(implicit ev: Ordering[A]): Boolean = {
-        val extoMonoid = new Monoid[IndexedSeq[A] => Boolean] {
-            override def op(a1: IndexedSeq[A] => Boolean, a2: IndexedSeq[A] => Boolean): IndexedSeq[A] => Boolean = {
-                case l if l.isEmpty => zero(l)
-                case l =>
-                    val (l1, l2) = l.splitAt(l.length / 2)
-                    a1(l1) && a2(l2)
+        val theMonoid = new Monoid[sorterthing[A]] {
+            override def op(a1: sorterthing[A], a2: sorterthing[A]): sorterthing[A] = a1 combine a2
+
+            override def zero: sorterthing[A] = sorterthing()
+        }
+
+        foldMapV(v, theMonoid)(sorterthing(_)).isSorted
+    }
+
+    case class sorterthing[A] private (interval: Option[IndexedSeq[A]])(implicit ev: Ordering[A]) {
+        def combine(other: sorterthing[A]): sorterthing[A] = (interval, other.interval) match {
+            case (Some(v1), Some(v2)) => (v1, v2) match {
+                case (_, l) if l.isEmpty => sorterthing(Some(v1))
+                case (l, _) if l.isEmpty => sorterthing(Some(v2))
+                case (as :+ a, b +: bs) if ev.lteq(a, b) => sorterthing(Some(v1 ++ v2))
+                case _ => sorterthing(None)
             }
-
-            override def zero: IndexedSeq[A] => Boolean = _ => true
+            case _ => sorterthing(None)
         }
 
-        def toIsSortedFunction(as: IndexedSeq[A]): IndexedSeq[A] => Boolean = {
-            case l if l.length <= 1 => true
-            case l =>
-                val (l1, l2) = l.splitAt(l.length / 2)
-                isSorted(l1) && isSorted(l2) && ev.lteq(l1.last, l2.head)
-        }
-
-        val (l, r) = v.splitAt(v.length / 2)
-        foldMap(l :: r :: Nil, extoMonoid)()
+        def isSorted: Boolean = interval.isDefined
+    }
+    object sorterthing {
+        def apply[A]()(implicit ev: Ordering[A]) = new sorterthing[A](Some(Vector()))
+        def apply[A](a: A)(implicit ev: Ordering[A]) = new sorterthing[A](Some(Vector(a)))
     }
 
     def foldRight_viaFoldMap[A, B](as: List[A], zero: B)(f: (B, A) => B): B =
@@ -107,7 +113,7 @@ object Monoid {
         case Nil =>
             m.zero
         case a +: Nil =>
-            m.op(f(a), m.zero)
+            f(a) // equivalent to m.op(f(a), m.zero) by monoid laws
         case as =>
             val (l, r) = as.splitAt(as.length / 2)
             m.op(foldMapV(l, m)(f), foldMapV(r, m)(f))
@@ -131,5 +137,17 @@ object Monoid {
     def apply[A](o: (A, A) => A, z: A): Monoid[A] = new Monoid[A] {
         override def op(a1: A, a2: A): A = o(a1, a2)
         override def zero: A = z
+    }
+
+    def main(args: Array[String]) = {
+        println(isSorted(Vector(1, 2, 3, 4)))
+        println(isSorted(Vector[Int]()))
+        println(isSorted(Vector(100)))
+        println(isSorted(Vector(101, 100)))
+        println(isSorted(Vector(1, 2, 3, 4, 1)))
+        println(isSorted(Vector(1, 2, 3, 4, 1)))
+        println(isSorted(Vector(1, 2, 3, 4, /**/ 5, 200, 201, 204, /**/ 9, 10, 11, 12, /**/ 13, 23, 31, 44)))
+        // ^ tests sorterthing.combine { ... case (as :+ a, b +: bs) if ev.lteq(a, b) => sorterthing(Some(v1 :+ b)) ... }
+        //                                                                                                   ^ wrong op
     }
 }
