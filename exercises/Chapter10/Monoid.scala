@@ -1,6 +1,9 @@
 package Chapter10
 
+import Chapter7.Par
+import Chapter7.Par.{ asyncF, Par }
 import Chapter8.{ Gen, Prop }
+import Chapter9.ParsersImpl.asStringParser
 
 trait Monoid[A] {
     def op(a1: A, a2: A): A
@@ -70,6 +73,29 @@ object Monoid {
 
     def foldMap[A, B](as: List[A], m: Monoid[B])(f: A => B): B =
         as.foldLeft(m.zero)((b, a) => m.op(b, f(a)))
+
+    def isSorted[A](v: IndexedSeq[A])(implicit ev: Ordering[A]): Boolean = {
+        val extoMonoid = new Monoid[IndexedSeq[A] => Boolean] {
+            override def op(a1: IndexedSeq[A] => Boolean, a2: IndexedSeq[A] => Boolean): IndexedSeq[A] => Boolean = {
+                case l if l.isEmpty => zero(l)
+                case l =>
+                    val (l1, l2) = l.splitAt(l.length / 2)
+                    a1(l1) && a2(l2)
+            }
+
+            override def zero: IndexedSeq[A] => Boolean = _ => true
+        }
+
+        def toIsSortedFunction(as: IndexedSeq[A]): IndexedSeq[A] => Boolean = {
+            case l if l.length <= 1 => true
+            case l =>
+                val (l1, l2) = l.splitAt(l.length / 2)
+                isSorted(l1) && isSorted(l2) && ev.lteq(l1.last, l2.head)
+        }
+
+        val (l, r) = v.splitAt(v.length / 2)
+        foldMap(l :: r :: Nil, extoMonoid)()
+    }
 
     def foldRight_viaFoldMap[A, B](as: List[A], zero: B)(f: (B, A) => B): B =
         foldMap(as, endoMonoid[B])(a => f(_, a))(zero)
