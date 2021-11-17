@@ -151,3 +151,48 @@ object Monoid {
         //                                                                                                   ^ wrong op
     }
 }
+
+object WordCount {
+    sealed trait WC {
+        def +(other: WC): WC
+        def wc: Int
+    }
+    case class Stub(chars: String) extends WC {
+        override def +(other: WC): WC = other match {
+            case Stub(ochars) => Stub(chars + ochars)
+            case Part(l, words, r) => Part(chars + l, words, r)
+        }
+
+        override def wc: Int = countWord(chars)
+    }
+
+    case class Part(lStub: String, words: Int, rStub: String) extends WC {
+        override def +(other: WC): WC = other match {
+            case Stub(ochars) => Part(lStub, words, rStub + ochars)
+            case Part(ol, owords, or) => Part(lStub, words + countWord(rStub + ol) + owords, or)
+        }
+
+        override def wc: Int = countWord(lStub) + words + countWord(rStub)
+    }
+
+    val wcMonoid: Monoid[WC] = new Monoid[WC] {
+        override def op(a1: WC, a2: WC): WC = a1 + a2
+
+        override def zero: WC = Stub("")
+    }
+
+    def wc(s: String): Int = {
+        def toWc(c: Char) = if (c.isWhitespace) Part("", 0, "") else Stub(c.toString)
+
+        Monoid.foldMapV(s.toCharArray, wcMonoid)(toWc _).wc
+    }
+
+    def countWord(s: String) = if (s.isEmpty) 0 else 1
+
+    def main(args: Array[String]) = {
+        println(wc("hi"))
+        println(wc(""))
+        println(wc("hi there guy"))
+        println(wc("   \thi   there\n  guy     "))
+    }
+}
