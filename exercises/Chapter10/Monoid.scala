@@ -136,9 +136,33 @@ object Monoid {
             Par.map2(foldMapPar(l, m)(f), foldMapPar(r, m)(f))(m.op)
     }
 
+    def productMonoid[A, B](a: Monoid[A], b: Monoid[B]) = Monoid[(A, B)] (
+        (a1, a2)=> (a.op(a1._1, a2._1), b.op(a1._2, a2._2)),
+        (a.zero, b.zero)
+    )
+
+    def functionMonoid[A, B](B: Monoid[B]) = Monoid[A => B](
+        (a1, a2) => a => B.op(a1(a), a2(a)),
+        _ => B.zero
+    )
+
     def apply[A](o: (A, A) => A, z: A): Monoid[A] = new Monoid[A] {
         override def op(a1: A, a2: A): A = o(a1, a2)
         override def zero: A = z
+    }
+
+    def bag[A](as: IndexedSeq[A]): Map[A, Int] = {
+        val m = new Monoid[Map[A, Int]] {
+            override def op(a1: Map[A, Int], a2: Map[A, Int]): Map[A, Int] = {
+                a1.keySet.foldLeft(a2) { (acc, k) =>
+                    acc.updated(k, acc.getOrElse(k, 0) + a1(k))
+                }
+            }
+
+            override def zero = Map()
+        }
+
+        foldMapV(as, m)(a => Map(a -> 1))
     }
 
     def main(args: Array[String]) = {
@@ -151,6 +175,7 @@ object Monoid {
         println(isSorted(Vector(1, 2, 3, 4, /**/ 5, 200, 201, 204, /**/ 9, 10, 11, 12, /**/ 13, 23, 31, 44)))
         // ^ tests sorterthing.combine { ... case (as :+ a, b +: bs) if ev.lteq(a, b) => sorterthing(Some(v1 :+ b)) ... }
         //                                                                                                   ^ wrong op
+        println(bag(Vector("a", "rose", "is", "a", "rose")))
     }
 }
 
@@ -211,13 +236,11 @@ trait Foldable[F[_]] {
     def concatenate[A](as: F[A])(m: Monoid[A]): A =
         foldLeft(as)(m.zero)(m.op)
 
-    def toList(as: F[A]): List[A] =
-        
+    def toList[A](as: F[A]): List[A] =
+        foldLeft(as)(List[A]())((b, a) => a :: b)
 }
 
 object Foldable {
-    def toList[A](fa: F[A]): List[A]
-
     val fList = new Foldable[List] {
         def foldRight[A, B](as: List[A])(z: B)(f: (A, B) => B): B =
             as.foldRight(z)(f)
@@ -269,7 +292,7 @@ object Foldable {
         def foldMap[A, B](as: Tree[A])(f: A => B)(m: Monoid[B]): B = as match {
             case Leaf(value) => f(value)
             case Branch(left, right) =>
-                m.op(foldMap(left)(f)(m), foldMap(right)(f)(m)))
+                m.op(foldMap(left)(f)(m), foldMap(right)(f)(m))
         }
     }
 
