@@ -16,32 +16,32 @@ trait Monoid[A] {
 object Monoid {
     val stringConcatMonoid = new Monoid[String] {
         override def op(a1: String, a2: String): String = a1 + a2
-        override def zero: String = ""
+        override val zero: String = ""
     }
 
     def listConcatMonoid[A] = new Monoid[List[A]] {
         override def op(a1: List[A], a2: List[A]): List[A] = a1 ++ a2
-        override def zero: List[A] = Nil
+        override val zero: List[A] = Nil
     }
 
     val intAddition = new Monoid[Int] {
         override def op(a1: Int, a2: Int): Int = a1 + a2
-        override def zero: Int = 0
+        override val zero: Int = 0
     }
 
     val intMultiplication = new Monoid[Int] {
         override def op(a1: Int, a2: Int): Int = a1 * a2
-        override def zero: Int = 1
+        override val zero: Int = 1
     }
 
     val booleanOr = new Monoid[Boolean] {
         override def op(a1: Boolean, a2: Boolean): Boolean = a1 || a2
-        override def zero: Boolean = false
+        override val zero: Boolean = false
     }
 
     val booleanAnd = new Monoid[Boolean] {
         override def op(a1: Boolean, a2: Boolean): Boolean = a1 && a2
-        override def zero: Boolean = true
+        override val zero: Boolean = true
     }
 
     def optionMonoid[A] = new Monoid[Option[A]] {
@@ -50,17 +50,17 @@ object Monoid {
             case _ => a1
         }
 
-        override def zero: Option[A] = None
+        override val zero: Option[A] = None
     }
 
     def endoMonoid[A] = new Monoid[A => A] {
         override def op(a1: A => A, a2: A => A): A => A = a1 andThen a2
-        override def zero: A => A = identity(_)
+        override val zero: A => A = identity(_)
     }
 
     def dual[A](m: Monoid[A]): Monoid[A] = new Monoid[A] {
         override def op(a1: A, a2: A): A = m.op(a2, a1)
-        override def zero: A = m.zero
+        override val zero: A = m.zero
     }
 
     def monoidLaws[A](m: Monoid[A], gen: Gen[A]): Prop = {

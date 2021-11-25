@@ -50,9 +50,25 @@ trait Monad[F[_]] extends Functor[F] {
                 if (bool) a :: las else las
             }
         }
+
+    def compose[A, B, C](f: A => F[B], g: B => F[C]): A => F[C] = a =>
+        flatMap(f(a))(g)
+
+    def flatMap_viaCompose[A, B](fa: F[A])(f: A => F[B]): F[B] =
+        compose[Unit, A, B](_ => fa, f)(())
+
+    def join[A](mma: F[F[A]]): F[A] =
+        flatMap(mma)(x => x)
+
+    // ex 11.13
+    def compose_viaJoinMap[A, B, C](f: A => F[B], g: B => F[C]): A => F[C] = a =>
+        join(map(f(a))(g))
+
+    def flatMap_viaJoinMap[A, B](m: F[A])(f: A => F[B]): F[B] =
+        join(map(m)(f))
 }
 
-object Monad {
+object MonadImpl {
     val genMonad = new Monad[Gen] {
         override def unit[A](a: A): Gen[A] = Gen.unit(a)
 
@@ -103,5 +119,15 @@ object Monad {
             override def flatMap[A, B](fa: State[S, A])(f: A => State[S, B]): State[S, B] =
                 fa flatMap f
         }
+    }
+
+    def main(args: Array[String]): Unit = {
+        val digits = List(0,1,2,3,4) // ,5,6,7,8,9)
+        val f: Int => List[Boolean] = i => List(1, i, i * i).map(_ % 2 == 0)
+        // not terribly helpful for the list monad
+        //println(listMonad.filterM(digits)(f1))
+
+        val f2: Int => List[Boolean] = i => List(i % 2 == 0)
+        println(listMonad.filterM(digits)(f2))
     }
 }
