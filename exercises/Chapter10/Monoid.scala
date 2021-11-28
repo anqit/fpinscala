@@ -89,8 +89,8 @@ object Monoid {
     case class sorterthing[A] private(interval: Option[IndexedSeq[A]])(implicit ev: Ordering[A]) {
         def combine(other: sorterthing[A]): sorterthing[A] = (interval, other.interval) match {
             case (Some(v1), Some(v2)) => (v1, v2) match {
-                case (_, l) if l.isEmpty => sorterthing(Some(v1))
-                case (l, _) if l.isEmpty => sorterthing(Some(v2))
+                case (_, l) if l.isEmpty => sorterthing(interval)
+                case (l, _) if l.isEmpty => sorterthing(other.interval)
                 case (as :+ a, b +: bs) if ev.lteq(a, b) => sorterthing(Some(v1 ++ v2))
                 case _ => sorterthing(None)
             }

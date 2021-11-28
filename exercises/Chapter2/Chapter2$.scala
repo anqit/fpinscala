@@ -27,7 +27,7 @@ object Chapter2 {
     def compose[A, B, C](f: B => C, g: A => B): A => C = a => f(g(a))
 
     def main(args: Array[String]): Unit = {
-        // println(fib(5));
+        // println(fib(5))
         println(isSorted(Array(0, 1, 2, 3, 2), (a: Int, b: Int) => a < b))
     }
 }

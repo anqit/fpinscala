@@ -12,6 +12,8 @@ case class State[S, +A] (run: S => (A, S)) {
     })
 
     def mapWith[B, C](sb: State[S, B])(f: (A, B) => C) = State.map2(this, sb)(f)
+    
+    def apply(s: S): (A, S) = run(s)
 }
 
 object State {
@@ -35,6 +37,8 @@ object State {
 
     // set the state directly
     def set[S](s: S): State[S, Unit] = State(_ => ((), s))
+    
+    def set[S, A](s: S, a: A = ()): State[S, A] = State(_ => (a, s))
 
     // create a State whose `run()` only operates on the state S
     // equivalent to State(s => ((), f(s)))

@@ -36,7 +36,7 @@ object TreeRunner {
     def mapViaFold[A, B](tree: Tree[A])(f: A => B): Tree[B] = fold(tree)(v => Leaf(f(v)): Tree[B])(Branch(_, _))
  
     def main(args: Array[String]) = {
-        val treeA = Branch(Branch(Leaf(1), Leaf(2)), Branch(Leaf(3), Leaf(4)));
+        val treeA = Branch(Branch(Leaf(1), Leaf(2)), Branch(Leaf(3), Leaf(4)))
         println("tree: " + treeA)
         println("size: " + size(treeA))
         println("max: " + maximum(treeA))

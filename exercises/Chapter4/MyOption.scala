@@ -34,7 +34,7 @@ object MyOption {
 
         os match {
             case Nil => Some(Nil) 
-            case x :: xs => x flatMap(xx => sequence(xs) map (xx :: _))
+            case x :: xs => x flatMap(a => sequence(xs) map (a :: _))
         }
 
     def traverse[A, B](as: List[A])(f: A => MyOption[B]): MyOption[List[B]] = 
@@ -46,7 +46,7 @@ object MyOption {
 
     def sequenceViTraverse[A](os: List[MyOption[A]]): MyOption[List[A]] = traverse(os)(a => a)
 
-    def Try[A](a: => A): MyOption[A] = 
+    def maybe[A](a: => A): MyOption[A] =
         try Some(a)
         catch {
             case _: Exception => None
@@ -56,15 +56,13 @@ object MyOption {
 object Insurance {
     import MyOption._
 
-    def insuranceRateQuote(age: Int, numTickets: Int): Double = {
-        5.0;
-    }
+    def insuranceRateQuote(age: Int, numTickets: Int): Double = 5.0
 
     def parseInuranceRateQuote(age: String, numTickets: String): MyOption[Double] = {
-        val optAge: MyOption[Int] = Try(age.toInt)
-        val optTix: MyOption[Int] = Try(numTickets.toInt)
-        
-        map2(optAge, optTix)(insuranceRateQuote _) 
+        val optAge: MyOption[Int] = maybe(age.toInt)
+        val optTix: MyOption[Int] = maybe(numTickets.toInt)
+
+        map2(optAge, optTix)(insuranceRateQuote _)
     }
 }
 
@@ -75,21 +73,21 @@ object Main {
         case 0 => None
         case _ => Some(ys.sum / ys.length)
     }
-    
+
        //  try {
        //      Some(ys.sum / ys.length)
        //  } catch {
-       //      case _: Throwable => None 
+       //      case _: Throwable => None
        //  }
 
     def variance(xs: Seq[Double]): MyOption[Double] = {
-        mean(xs).map(m => xs.map(x => math.pow(x - m, 2))).flatMap(mean _) 
+        mean(xs).map(m => xs.map(x => math.pow(x - m, 2))).flatMap(mean _)
     }
 
     def main(args: Array[String]) {
         val xs = List(1.0, 2.0, 3.0, 4.0)
         println("var: " + variance(xs))
-        println("traverse: " + traverse(xs)(x => Try(x.toString)))
+        println("traverse: " + traverse(xs)(x => maybe(x.toString)))
     }
 }
 
