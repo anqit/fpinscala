@@ -10,7 +10,7 @@ case class Id[A](value: A) {
 
 object Id {
     def idMonad[A] = new Monad[Id] {
-        override def unit[A](a: A): Id[A] = Id(a)
+        override def unit[A](a: => A): Id[A] = Id(a)
 
         override def flatMap[A, B](fa: Id[A])(f: A => Id[B]): Id[B] = fa flatMap f
     }
@@ -30,7 +30,7 @@ object Id {
 object StateMonad {
     import State._
     def StateMonad[S] = new Monad[({type SS[A] = State[S, A]})#SS] {
-        override def unit[A](a: A): State[S, A] = State.unit(a)
+        override def unit[A](a: => A): State[S, A] = State.unit(a)
 
         override def flatMap[A, B](fa: State[S, A])(f: A => State[S, B]): State[S, B] = fa flatMap f
     }
@@ -58,7 +58,7 @@ object StateMonad {
         as.foldLeft(F.unit(List[(Int, A)]())) { (state, a) =>
             for {
                 xs <- state
-                xxs <- modify((i: Int) => i + 1, (i: Int) => (i, a) :: xs)
+                xxs <- State((i: Int) => ((i, a) :: xs, i + 1))
             } yield xxs
         }.run(0)._1.reverse
 
