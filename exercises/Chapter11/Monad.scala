@@ -6,23 +6,11 @@ import Chapter8.Gen
 import Chapter9.{ Parsers, ParsersImpl }
 import Chapter9.ParserTypes.Parser
 import jdk.nashorn.api.tree.ParserImpl
+import Chapter12.Applicative
 import Chapter5.Stream
 import Chapter6.State
 
-trait Functor[F[_]] {
-    def map[A, B](a: F[A])(f: A => B): F[B]
-
-    def distribute[A, B](fab: F[(A, B)]): (F[A], F[B]) =
-        (map(fab)((_._1)), map(fab)((_._2)))
-
-    def codistribute[A, B](e: Either[F[A], F[B]]): F[Either[A, B]] =
-        e match {
-            case Left(a) => map(a)(Left(_))
-            case Right(b) => map(b)(Right(_))
-        }
-}
-
-trait Monad[F[_]] extends Functor[F] {
+trait Monad[F[_]] extends Applicative[F] {
     def unit[A](a: => A): F[A]
     def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B]
 
@@ -31,18 +19,6 @@ trait Monad[F[_]] extends Functor[F] {
 
     def map2[A, B, C](fa: F[A], fb: F[B])(f: (A, B) => C): F[C] =
         flatMap(fa)(a => map(fb)(b => f(a, b)))
-
-    def sequence[A](fs: List[F[A]]): F[List[A]] =
-        fs.foldRight(unit(List[A]()))((fa, fas) => map2(fa, fas)(_ :: _))
-
-    def traverse[A, B](as: List[A])(f: A => F[B]): F[List[B]] =
-        as.foldRight(unit(List[B]()))((a, fbs) => map2(f(a), fbs)(_ :: _))
-
-    def replicateM[A](n: Int, ma: F[A]): F[List[A]] = n match {
-        case p if p > 0 =>
-            map2(ma, replicateM(n - 1, ma))(_ :: _)
-        case _ => unit(Nil)
-    }
 
     def filterM[A](as: List[A])(f: A => F[Boolean]): F[List[A]] =
         as.foldRight(unit(List[A]())) { (a, fas) =>
@@ -118,6 +94,15 @@ object MonadImpl {
 
             override def flatMap[A, B](fa: State[S, A])(f: A => State[S, B]): State[S, B] =
                 fa flatMap f
+        }
+    }
+
+    def eitherMonad[E] = new Monad[({ type f[x] = Either[E, x]})#f] {
+        override def unit[A](a: => A): Either[E, A] = Right(a)
+
+        override def flatMap[A, B](fa: Either[E, A])(f: A => Either[E, B]): Either[E, B] = fa match {
+            case Left(l) => Left(l)
+            case Right(a) => f(a)
         }
     }
 
