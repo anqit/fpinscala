@@ -45,7 +45,7 @@ object ParsersImpl extends Parsers[Parser] {
                 Failure(ParseError(Location(input, offset + eoffset), s"expected '$phead', found '$ihead'"), eoffset != 0)
         }
 
-        go(input.slice(offset, input.length).toList, pattern.toList)
+        go(input.substring(offset).toList, pattern.toList)
     }
 
     override def string(s: String): Parser[String] = scope(s"input did not match '$s'") {

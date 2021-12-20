@@ -1,3 +1,5 @@
+package Chapter4
+
 trait MyEither[+E, +A] {
     def map[B](f: A => B): MyEither[E, B] = this match {
         case Left(l) => Left(l)
@@ -39,7 +41,8 @@ object MyEither {
     def main(args: Array[String]) = {
         val r = Right(8)
         val r2 = Right(9)
-        val f2: Function1[(Int, Int) => Int, MyEither[Exception, Int]] = (r map2[Exception, Int, Int] r2)_
+        //val f2: Function1[(Int, Int) => Int, MyEither[Exception, Int]] = (r map2[Exception, Int, Int] r2)_
+        val f2: ((Int, Int) => Int) => MyEither[Exception, Int] = r map2[Exception, Int, Int] r2
         val result = f2((a,b) => a*b)
         println("result: " + result)
     }

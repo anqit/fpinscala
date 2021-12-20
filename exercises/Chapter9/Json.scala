@@ -26,7 +26,7 @@ class JsonParserFactory[Parser[+_]](P: Parsers[Parser]) {
     def valParser: Parser[Json] = trim(nullParser | stringParser | boolParser | arrayParser | objParser | numParser)
     def nullParser: Parser[JNull.type] = trim(string("null")).map(_ => JNull) scope "NULL"
     def stringParser: Parser[JString] = trim(char('"') **> regex("[^\"]*".r) <** char('"')).map(JString(_)) scope "json string"
-    def boolParser: Parser[JBool] = trim(("true" | "false")).map(_.toBoolean).map(JBool(_)) scope "json bool"
+    def boolParser: Parser[JBool] = trim("true" | "false").map(_.toBoolean).map(JBool(_)) scope "json bool"
     def arrayParser: Parser[JArray] =
         csvParser[Json, Vector[Json], JArray](valParser, '[', ']', _.toVector, JArray(_)) scope "json array"
     def objParser: Parser[JObject] =
