@@ -1,6 +1,8 @@
 package Chapter10
 
+import Chapter10.Monoid.{ dual, endoMonoid }
 import Chapter3.{ Branch, Leaf, Tree }
+import Chapter5.Stream
 import Chapter6.State
 import Chapter7.Par
 import Chapter7.Par.{ asyncF, Par }
@@ -14,37 +16,37 @@ trait Monoid[A] {
 }
 
 object Monoid {
-    val stringConcatMonoid = new Monoid[String] {
+    val stringConcatMonoid: Monoid[String] = new Monoid[String] {
         override def op(a1: String, a2: String): String = a1 + a2
         override val zero: String = ""
     }
 
-    def listConcatMonoid[A] = new Monoid[List[A]] {
+    def listConcatMonoid[A]: Monoid[List[A]] = new Monoid[List[A]] {
         override def op(a1: List[A], a2: List[A]): List[A] = a1 ++ a2
         override val zero: List[A] = Nil
     }
 
-    val intAddition = new Monoid[Int] {
+    val intAddition: Monoid[Int] = new Monoid[Int] {
         override def op(a1: Int, a2: Int): Int = a1 + a2
         override val zero: Int = 0
     }
 
-    val intMultiplication = new Monoid[Int] {
+    val intMultiplication: Monoid[Int] = new Monoid[Int] {
         override def op(a1: Int, a2: Int): Int = a1 * a2
         override val zero: Int = 1
     }
 
-    val booleanOr = new Monoid[Boolean] {
+    val booleanOr: Monoid[Boolean] = new Monoid[Boolean] {
         override def op(a1: Boolean, a2: Boolean): Boolean = a1 || a2
         override val zero: Boolean = false
     }
 
-    val booleanAnd = new Monoid[Boolean] {
+    val booleanAnd: Monoid[Boolean] = new Monoid[Boolean] {
         override def op(a1: Boolean, a2: Boolean): Boolean = a1 && a2
         override val zero: Boolean = true
     }
 
-    def optionMonoid[A] = new Monoid[Option[A]] {
+    def optionMonoid[A]: Monoid[Option[A]] = new Monoid[Option[A]] {
         override def op(a1: Option[A], a2: Option[A]): Option[A] = (a1, a2) match {
             case (None, _) => a2
             case _ => a1
@@ -53,9 +55,9 @@ object Monoid {
         override val zero: Option[A] = None
     }
 
-    def endoMonoid[A] = new Monoid[A => A] {
+    def endoMonoid[A]: Monoid[A => A] = new Monoid[A => A] {
         override def op(a1: A => A, a2: A => A): A => A = a1 andThen a2
-        override val zero: A => A = identity(_)
+        override val zero: A => A = identity
     }
 
     def dual[A](m: Monoid[A]): Monoid[A] = new Monoid[A] {
@@ -136,12 +138,12 @@ object Monoid {
             Par.map2(foldMapPar(l, m)(f), foldMapPar(r, m)(f))(m.op)
     }
 
-    def productMonoid[A, B](a: Monoid[A], b: Monoid[B]) = Monoid[(A, B)] (
+    def productMonoid[A, B](a: Monoid[A], b: Monoid[B]): Monoid[(A, B)] = Monoid[(A, B)] (
         (a1, a2)=> (a.op(a1._1, a2._1), b.op(a1._2, a2._2)),
         (a.zero, b.zero)
     )
 
-    def functionMonoid[A, B](B: Monoid[B]) = Monoid[A => B](
+    def functionMonoid[A, B](B: Monoid[B]): Monoid[A => B] = Monoid[A => B](
         (a1, a2) => a => B.op(a1(a), a2(a)),
         _ => B.zero
     )
@@ -152,7 +154,7 @@ object Monoid {
     }
 
     def bag[A](as: IndexedSeq[A]): Map[A, Int] = {
-        val m = new Monoid[Map[A, Int]] {
+        val m: Monoid[Map[A, Int]] = new Monoid[Map[A, Int]] {
             override def op(a1: Map[A, Int], a2: Map[A, Int]): Map[A, Int] = {
                 a1.keySet.foldLeft(a2) { (acc, k) =>
                     acc.updated(k, acc.getOrElse(k, 0) + a1(k))
@@ -165,7 +167,7 @@ object Monoid {
         foldMapV(as, m)(a => Map(a -> 1))
     }
 
-    def main(args: Array[String]) = {
+    def main(args: Array[String]): Unit = {
         println(isSorted(Vector(1, 2, 3, 4)))
         println(isSorted(Vector[Int]()))
         println(isSorted(Vector(100)))
@@ -213,12 +215,12 @@ object WordCount {
     def wc(s: String): Int = {
         def toWc(c: Char) = if (c.isWhitespace) Part("", 0, "") else Stub(c.toString)
 
-        Monoid.foldMapV(s.toCharArray, wcMonoid)(toWc _).wc
+        Monoid.foldMapV(s.toCharArray, wcMonoid)(toWc).wc
     }
 
-    def countWord(s: String) = if (s.isEmpty) 0 else 1
+    def countWord(s: String): Int = if (s.isEmpty) 0 else 1
 
-    def main(args: Array[String]) = {
+    def main(args: Array[String]): Unit = {
         println(wc("hi"))
         println(wc(""))
         println(wc("hi there guy"))
@@ -227,9 +229,11 @@ object WordCount {
 }
 
 trait Foldable[F[_]] {
-    def foldRight[A, B](as: F[A])(z: B)(f: (A, B) => B): B
+    def foldRight[A, B](as: F[A])(z: B)(f: (A, B) => B): B =
+        foldMap(as)(f.curried)(endoMonoid[B])(z)
 
-    def foldLeft[A, B](as: F[A])(z: B)(f: (B, A) => B): B
+    def foldLeft[A, B](as: F[A])(z: B)(f: (B, A) => B): B =
+        foldMap(as)(a => (b: B) => f(b, a))(dual(endoMonoid[B]))(z)
 
     def foldMap[A, B](as: F[A])(f: A => B)(m: Monoid[B]): B
 
@@ -241,48 +245,48 @@ trait Foldable[F[_]] {
 }
 
 object Foldable {
-    val fList = new Foldable[List] {
-        def foldRight[A, B](as: List[A])(z: B)(f: (A, B) => B): B =
+    val fList: Foldable[List] = new Foldable[List] {
+        override def foldRight[A, B](as: List[A])(z: B)(f: (A, B) => B): B =
             as.foldRight(z)(f)
 
-        def foldLeft[A, B](as: List[A])(z: B)(f: (B, A) => B): B =
+        override def foldLeft[A, B](as: List[A])(z: B)(f: (B, A) => B): B =
             as.foldLeft(z)(f)
 
         def foldMap[A, B](as: List[A])(f: A => B)(m: Monoid[B]): B =
             as.foldLeft(m.zero)((b, a) => m.op(b, f(a)))
     }
 
-    val fIdxSeq = new Foldable[IndexedSeq] {
-        def foldRight[A, B](as: IndexedSeq[A])(z: B)(f: (A, B) => B): B =
+    val fIdxSeq: Foldable[IndexedSeq] = new Foldable[IndexedSeq] {
+        override def foldRight[A, B](as: IndexedSeq[A])(z: B)(f: (A, B) => B): B =
             as.foldRight(z)(f)
 
-        def foldLeft[A, B](as: IndexedSeq[A])(z: B)(f: (B, A) => B): B =
+        override def foldLeft[A, B](as: IndexedSeq[A])(z: B)(f: (B, A) => B): B =
             as.foldLeft(z)(f)
 
         def foldMap[A, B](as: IndexedSeq[A])(f: A => B)(m: Monoid[B]): B =
             as.foldLeft(m.zero)((b, a) => m.op(b, f(a)))
     }
 
-    val fStream = new Foldable[Stream] {
-        def foldRight[A, B](as: Stream[A])(z: B)(f: (A, B) => B): B =
-            as.foldRight(z)(f)
+    val fStream: Foldable[Stream] = new Foldable[Stream] {
+        override def foldRight[A, B](as: Stream[A])(z: B)(f: (A, B) => B): B =
+            as.foldRight(z)((a,b) => f(a, b))
 
-        def foldLeft[A, B](as: Stream[A])(z: B)(f: (B, A) => B): B =
-            as.foldLeft(z)(f)
+        override def foldLeft[A, B](as: Stream[A])(z: B)(f: (B, A) => B): B =
+            as.foldLeft(z)((b, a) => f(b, a))
 
         def foldMap[A, B](as: Stream[A])(f: A => B)(m: Monoid[B]): B =
             as.foldLeft(m.zero)((b, a) => m.op(b, f(a)))
     }
 
-    val fTree = new Foldable[Tree] {
-        def foldRight[A, B](as: Tree[A])(z: B)(f: (A, B) => B): B = as match {
+    val fTree: Foldable[Tree] = new Foldable[Tree] {
+        override def foldRight[A, B](as: Tree[A])(z: B)(f: (A, B) => B): B = as match {
             case Leaf(value) => f(value, z)
             case Branch(left, right) =>
                 val rb = foldRight(right)(z)(f)
                 foldRight(left)(rb)(f)
         }
 
-        def foldLeft[A, B](as: Tree[A])(z: B)(f: (B, A) => B): B = as match {
+        override def foldLeft[A, B](as: Tree[A])(z: B)(f: (B, A) => B): B = as match {
             case Leaf(value) => f(z, value)
             case Branch(left, right) =>
                 val lb = foldLeft(left)(z)(f)
@@ -296,7 +300,7 @@ object Foldable {
         }
     }
 
-    val fOption = new Foldable[Option] {
+    val fOption: Foldable[Option] = new Foldable[Option] {
         override def foldRight[A, B](as: Option[A])(z: B)(f: (A, B) => B): B =
             as.foldRight(z)(f)
 
@@ -305,10 +309,9 @@ object Foldable {
             case Some(value) => f(z, value)
         }
 
-        override def foldMap[A, B](as: Option[A])(f: A => B)(m: Monoid[B]) = as match {
+        override def foldMap[A, B](as: Option[A])(f: A => B)(m: Monoid[B]): B = as match {
             case Some(value) => f(value)
             case None => m.zero
         }
-
     }
 }

@@ -42,45 +42,58 @@ trait Monad[F[_]] extends Applicative[F] {
 
     def flatMap_viaJoinMap[A, B](m: F[A])(f: A => F[B]): F[B] =
         join(map(m)(f))
+
+    // ex 12.11; attempting the impossible
+    //def compose[G[_]](G: Monad[G]): Monad[({ type f[x] = F[G[x]]})#f] = {
+    //    val self = this
+    //    new Monad[({ type f[x] = F[G[x]] })#f] {
+    //        override def unit[A](a: => A): F[G[A]] = self.unit(G.unit(a))
+    //        override def flatMap[A, B](fa: F[G[A]])(f: A => F[G[B]]): F[G[B]] = {
+    //            self.flatMap(fa)(ga => G.flatMap(ga)(a => {
+    //                f(a)
+    //            }))
+    //        }
+    //    }
+    //}
 }
 
 object MonadImpl {
-    val genMonad = new Monad[Gen] {
+    val genMonad: Monad[Gen] = new Monad[Gen] {
         override def unit[A](a: => A): Gen[A] = Gen.unit(a)
 
         override def flatMap[A, B](fa: Gen[A])(f: A => Gen[B]): Gen[B] =
             fa flatMap f
     }
 
-    val parMonad = new Monad[Par] {
+    val parMonad: Monad[Par] = new Monad[Par] {
         override def unit[A](a: => A): Par[A] = Par.unit(a)
 
         override def flatMap[A, B](fa: Par[A])(f: A => Par[B]): Par[B] =
             Par.chooser(fa)(f)
     }
 
-    def parserMonad[P[+_]](p: Parsers[P]) = new Monad[P] {
+    def parserMonad[P[+_]](p: Parsers[P]): Monad[P] = new Monad[P] {
         override def unit[A](a: => A): P[A] = p.succeed(a)
 
         override def flatMap[A, B](fa: P[A])(f: A => P[B]): P[B] =
             p.flatMap(fa)(f)
     }
 
-    val optionMonad = new Monad[Option] {
+    val optionMonad: Monad[Option] = new Monad[Option] {
         override def unit[A](a: => A): Option[A] = Option(a)
 
         override def flatMap[A, B](fa: Option[A])(f: A => Option[B]): Option[B] =
             fa flatMap f
     }
 
-    val streamMonad = new Monad[Stream] {
+    val streamMonad: Monad[Stream] = new Monad[Stream] {
         override def unit[A](a: => A): Stream[A] = Stream(a)
 
         override def flatMap[A, B](fa: Stream[A])(f: A => Stream[B]): Stream[B] =
             fa flatMap f
     }
 
-    val listMonad = new Monad[List] {
+    val listMonad: Monad[List] = new Monad[List] {
         override def unit[A](a: => A): List[A] = List(a)
 
         override def flatMap[A, B](fa: List[A])(f: A => List[B]): List[B] =
@@ -97,7 +110,7 @@ object MonadImpl {
         }
     }
 
-    def eitherMonad[E] = new Monad[({ type f[x] = Either[E, x]})#f] {
+    def eitherMonad[E]: Monad[({ type f[x] = Either[E, x]})#f] = new Monad[({ type f[x] = Either[E, x]})#f] {
         override def unit[A](a: => A): Either[E, A] = Right(a)
 
         override def flatMap[A, B](fa: Either[E, A])(f: A => Either[E, B]): Either[E, B] = fa match {
@@ -122,14 +135,15 @@ case class Reader[R, A](run: R => A) {
 }
 
 object Reader {
-    def readerMonad[R] = new Monad[({type f[x] = Reader[R, x]})#f] {
-        override def unit[A](a: => A): Reader[R, A] =
-            Reader(_ => a)
-
-        override def flatMap[A, B](fa: Reader[R, A])(f: A => Reader[R, B]): Reader[R, B] = Reader { r =>
-            f(fa(r))(r)
+    def readerMonad[R]: Monad[({type f[x] = Reader[R, x]})#f] =
+        new Monad[({type f[x] = Reader[R, x]})#f] {
+            override def unit[A](a: => A): Reader[R, A] =
+                Reader(_ => a)
+    
+            override def flatMap[A, B](fa: Reader[R, A])(f: A => Reader[R, B]): Reader[R, B] = Reader { r =>
+                f(fa(r))(r)
+            }
         }
-    }
 
     // r => r => a
     def join[R, A](rra: Reader[R, Reader[R, A]]): Reader[R, A] = Reader { r =>
