@@ -68,6 +68,11 @@ sealed trait Stream[+A] {
         case _ => z
     }
 
+    def foldLeft[B](z: => B)(f: (=> B, A) => B): B = this match {
+        case Cons(h, t) => t().foldLeft(f(z, h()))(f)
+        case _ => z
+    }
+
     def takeWhile_fr(p: A => Boolean): Stream[A] =
         foldRight(empty[A])((a, b) => if(p(a)) cons(a, b) else empty) 
 
@@ -100,7 +105,6 @@ sealed trait Stream[+A] {
             case Cons(h, t) if p(h()) => Some(h() -> t()) 
             case _ => None
         }
-
     
     def zip[B](bs: Stream[B]): Stream[(A, B)] =
         zipWith_u(bs)((_, _))
@@ -118,7 +122,7 @@ sealed trait Stream[+A] {
         }
 
     def startsWith[A](s: Stream[A]): Boolean =
-        zipAll_u(s).takeWhile(!_._2.isEmpty) forAll { case (h, h2) => h == h2 }
+        zipAll_u(s).takeWhile(_._2.isDefined) forAll { case (h, h2) => h == h2 }
 
     def tails: Stream[Stream[A]] = unfold(this) {
             case Empty => None
@@ -131,7 +135,7 @@ sealed trait Stream[+A] {
     def hasSubsequence[A](s: Stream[A]): Boolean = 
         tails exists (_ startsWith s)
 
-    override def toString = toList.toString
+    override def toString: String = toList.toString
 }
 
 case object Empty extends Stream[Nothing]
@@ -185,11 +189,11 @@ object Stream {
 
     def constant_u[A](a: A): Stream[A] = unfold(a)(s => Some((a, a)))
 
-    def ones_u = constant(1)
+    def ones_u: Stream[Int] = constant(1)
 }
 
 object Main {
-    def main(args: Array[String]) = {
+    def main(args: Array[String]): Unit = {
         val s = Stream(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)
 
         println("stream as list: " + s.toList)
@@ -206,9 +210,9 @@ object Main {
         println("headOption: " + s.headOption)
         println()
         println("===== 5.7 =====")
-        println("map: " + s.map(digitToString _))
+        println("map: " + s.map(digitToString))
         println("filter: " + s.filter(_ % 2 == 0))
-        println("flatMap: " + s.flatMap(a => Stream((1 to a): _*)))
+        println("flatMap: " + s.flatMap(a => Stream(1 to a: _*)))
 
         println("constant: " + Stream.constant("hi").take(5))
         println("from: " + Stream.from(7).take(5))
@@ -219,7 +223,7 @@ object Main {
         println("from unfold: " + Stream.from_u(7).take(5))
         println("constant unfold: " + Stream.constant_u(7.9).take(6))
         println("ones unfold: " + Stream.ones_u.take(4))
-        println("map_u: " + s.map_u(digitToString _))
+        println("map_u: " + s.map_u(digitToString))
         println("take_u: " + s.take_u(5))
         println("takeWhile_u: " + s.takeWhile_u(_ < 4))
         
