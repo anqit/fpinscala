@@ -7,7 +7,7 @@ import scala.util.matching.Regex
 trait Parsers[Parser[+_]] { self =>
     implicit def string(s: String): Parser[String]
     implicit def operators[A](p: Parser[A]) = ParserOps[A](p)
-    implicit def asStringParser[A](a: A)(implicit f: A => Parser[String]): ParserOps[String] =
+    implicit def asStringParser[A, B](a: A)(implicit f: A => Parser[B]): ParserOps[B] =
         ParserOps(f(a))
     implicit def regex(r: Regex): Parser[String]
 

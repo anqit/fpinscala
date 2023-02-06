@@ -46,7 +46,7 @@ class JsonParserFactory[Parser[+_]](P: Parsers[Parser]) {
         val suffix = trim(char(sfx))
         val comma = trim(char(','))
 
-        enclose(prefix, suffix)(delimited(comma)(elemParser)) map (toColl) map (toJson)
+        enclose(prefix, suffix)(delimited(comma)(elemParser)) map toColl map toJson
     }
 
     def jsonParser: Parser[Json] = trim(spaces **> valParser) scope "ROOT"
