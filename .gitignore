@@ -12,3 +12,4 @@ out/
 **/*/target/
 target/
 project/target
+.bsp/
