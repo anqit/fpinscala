@@ -73,7 +73,7 @@ object List:
         foldLeft(reverse(as), acc, (b, a) => f(a, b))
 
     def append[A](a1: List[A], a2: List[A]): List[A] =
-        foldRight(a1, a2, (a, acc) => a :: acc)
+        foldRight(a1, a2, _ :: _)
 
     def concat[A](aas: List[List[A]]): List[A] =
         foldRight(aas, Nil: List[A], append)
@@ -94,9 +94,10 @@ object List:
         case (Cons(ah, at), Cons(bh, bt)) => f(ah, bh) :: zip(at, bt, f)
         case _ => Nil
 
+    //@tailrec
     def hasSubsequence[A](sup: List[A], sub: List[A]): Boolean = (sup, sub) match
-        case (_, Nil) => true
-        case (Cons(ah, at), Cons(bh, bt)) if ah == bh => hasSubsequence(at, bt)
+        case (Nil, Nil) => true
+        case (Cons(ah, at), Cons(bh, bt)) if ah == bh && hasSubsequence(at, bt) => true
         case (Cons(_, at), _) => hasSubsequence(at, sub)
         case _ => false
 
@@ -121,7 +122,7 @@ object List:
         def product: T = ts match
             case Nil => n.one
             case Cons(x, xs) => x * xs.product
-    
+
     @main
     def lists(): Unit =
         val is = List(1, 2, 3, 4, 5)
@@ -138,11 +139,11 @@ object List:
         //p(map(List(1, 2, 3), i => List(i,i)))
         //p(filterViaFM(is, _ % 2 == 0))
         p(zip(List(1,2,3), List(4,5,6), _ + _))
-        p(hasSubsequence(List(1,2,3,4), List(1,2)))
-        p(hasSubsequence(List(1,2,3,4), List(2,3)))
-        p(hasSubsequence(List(1,2,3,4), List(4)))
-        p(hasSubsequence(List(1,2,3,4), List(3, 2)))
-        p(hasSubsequence(List(1,2,3,4), List(5)))
+        p(hasSubsequence(List(1,1,2,3,4), List(1,2)))
+        //p(hasSubsequence(List(1,2,3,4), List(2,3)))
+        //p(hasSubsequence(List(1,2,3,4), List(4)))
+        //p(hasSubsequence(List(1,2,3,4), List(3, 2)))
+        //p(hasSubsequence(List(1,2,3,4), List(5)))
 
 
         //p(is.sum)

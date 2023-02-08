@@ -10,9 +10,13 @@ enum Tree[+A]:
         case Leaf(l) => fl(l)
         case Branch(l, r) => fb(l.fold(fl, fb), r.fold(fl, fb))
 
-    def size: Int = fold(_ => 1, (l, r) => 1 + l + r)
+    def fold[B](b: B, fb: (B, B) => B): B = this match
+        case Leaf(l) => b
+        case Branch(l, r) => fb(l.fold(b, fb), r.fold(b, fb))
 
-    def depth: Int = fold(_ => 1, (l, r) => 1 + (l max r))
+    def size: Int = fold(1, (l, r) => 1 + l + r)
+
+    def depth: Int = fold(1, (l, r) => 1 + (l max r))
 
     def map[B](f: A => B): Tree[B] = fold(l => Leaf(f(l)), (l, r) => Branch(l, r))
 
@@ -24,10 +28,7 @@ object Tree:
                 val lpos = l.firstPositive
                 if num.gt(lpos, num.zero) then lpos else r.firstPositive
 
-        def maximum: A = t match
-            case Leaf(i) => i
-            case Branch(l, r) =>
-                num.max(l.maximum, r.maximum)
+        def maximum: A = t.fold(l => l, num.max(_, _))
 
     @main
     def trees(): Unit =
