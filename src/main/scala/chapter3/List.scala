@@ -96,7 +96,6 @@ object List:
 
     //@tailrec
     def hasSubsequence[A](sup: List[A], sub: List[A]): Boolean = (sup, sub) match
-        case (Nil, Nil) => true
         case (Cons(ah, at), Cons(bh, bt)) if ah == bh && hasSubsequence(at, bt) => true
         case (Cons(_, at), _) => hasSubsequence(at, sub)
         case _ => false
