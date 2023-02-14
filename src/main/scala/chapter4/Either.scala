@@ -20,10 +20,10 @@ enum Either[+E, +A]:
         case _ => b
 
     def map2[EE >: E, B, C](that: Either[EE, B])(f: (A, B) => C): Either[EE, C] =
-        for {
+        for
             a <- this
             b <- that
-        } yield f(a, b)
+        yield f(a, b)
         //flatMap { a => that map { f(a, _) }}
 
 object Either:
