@@ -11,10 +11,12 @@ object State:
                 val (a, next) = sa(s)
                 (f(a), next)
 
-        def flatMap[B](f: A => State[S, B]) : State[S, B] =
-            s =>
-                val (a, next) = sa(s)
-                f(a)(next)
+        def flatMap[B](f: A => State[S, B]) : State[S, B] = State.fm(sa, f)
+
+    def fm[S, A, B](sa: State[S, A], f: A => State[S, B]): State[S, B] =
+        s =>
+            val (a, next) = sa(s)
+            f(a)(next)
 
     def unit[S, A](a: A): State[S, A] = State(s => (a, s))
 

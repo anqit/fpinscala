@@ -103,10 +103,15 @@ object Par:
             Par.equal(es)(pa, p2)
             
         def run(es: ExecutorService): A =
+            p("running")
             val ref = new AtomicReference[A]
             val latch = new CountDownLatch(1)
-            pa(es) { a => ref.set(a); latch.countDown }
+            pa(es) { a =>
+                ref.set(a)
+                latch.countDown
+            }
             latch.await
+            p("latch has... latched")
             ref.get
 
     val es = Executors.newFixedThreadPool(10)
@@ -131,9 +136,9 @@ object Par:
 
         def runActorMap2(): List[Double] =
             p("actor map2")
-            val pl = Par.parMap(List.range(1, 100000))(math.sqrt(_))
+            val pl = Par.parMap(List.range(1, 10000))(math.sqrt(_))
             val (e, l) = time {
-                pl.run(Executors.newFixedThreadPool(2))
+                pl.run(Executors.newFixedThreadPool(1))
             }
             p(e, l)
             l
@@ -151,5 +156,6 @@ object Par:
             runActorMap2().take(10)
 
         finally
+          p("shutting down")
           es.shutdown()
 
