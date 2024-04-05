@@ -87,7 +87,7 @@ enum LazyList[+A]:
             case _ => None
         }
 
-    def startsWith[A](prefix: LazyList[A]): Boolean =
+    def startsWith[B](prefix: LazyList[B])(implicit ce: CanEqual[A, B]): Boolean =
         zipAll(prefix).takeWhile(_(1).isDefined).forAll((a1, a2) => a1 == a2)
         //zipAll(prefix).map {
         //    case (_, None) => 1
@@ -151,7 +151,7 @@ object LazyList:
         case _ => empty
 
     def pll(l: LazyList[_], n: Int = 10): Unit =
-        println(l.take(n).toList)
+        p(l.take(n).toList)
 
     @main
     def lazylists(): Unit =
