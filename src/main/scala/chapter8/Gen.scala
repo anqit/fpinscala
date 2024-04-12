@@ -31,6 +31,9 @@ object Gen:
 
     def weighted[A](g1: (Gen[A], Double), g2: (Gen[A], Double)): Gen[A] = (g1, g2) match
         case ((ga1, w1), (ga2, w2)) => Rand.double.flatMap { w => if w < w1 / (w1 + w2) then ga1 else ga2 }
+        
+    def map2[A, B, C](ga: Gen[A], gb: Gen[B])(f: (A, B) => C): Gen[C] =
+        State.map2(ga, gb)(f)
 
     extension[A] (self: Gen[A])
         def apply(rng: RNG): (A, RNG) = State.apply(self)(rng)

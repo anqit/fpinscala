@@ -9,6 +9,8 @@ import util.Utils.*
 opaque type Fyoocher[+A] = (A => Unit) => Unit
 opaque type Par[+A] = ExecutorService => Fyoocher[A]
 
+//type Fücher
+
 object Par:
     def unit[A](a: A): Par[A] = es => cb => cb(a)
 

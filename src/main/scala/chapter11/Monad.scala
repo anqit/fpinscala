@@ -1,6 +1,7 @@
 package chapter11
 
 import chapter12.Applicative
+import chapter6.State
 
 import scala.annotation.targetName
 
@@ -64,6 +65,12 @@ object Monad:
         extension[A](ea: Either[E, A])
             override def flatMap[B](f: A => Either[E, B]): Either[E, B] =
                 ea flatMap f
+                
+    given stateMonad[S]: Monad[[x] =>> State[S, x]] with
+        override def unit[A](a: => A): State[S, A] = State.unit(a)
+        extension[A](sa: State[S, A])
+            override def flatMap[B](f: A => State[S, B]): State[S, B] =
+                State.flatMap(sa)(f)
 
 case class Id[A](a: A):
     def map[B](f: A => B): Id[B] =
