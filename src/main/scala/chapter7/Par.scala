@@ -12,7 +12,7 @@ opaque type Par[+A] = ExecutorService => Fyoocher[A]
 //type Fücher
 
 object Par:
-    def unit[A](a: A): Par[A] = es => cb => cb(a)
+    def unit[A](a: A): Par[A] = _ => cb => cb(a)
 
     def lazyUnit[A](a: => A): Par[A] = fork(unit(a))
 

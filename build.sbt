@@ -1,6 +1,6 @@
 ThisBuild / organization := "com.ankit"
 ThisBuild / version := "2.0.0"
-ThisBuild / scalaVersion := "3.1.2"
+ThisBuild / scalaVersion := "3.3.3"
 
 // uncomment to build with warnings displayed
 // set scalacOptions in ThisBuild ++= Seq("-feature", "-deprecation")
