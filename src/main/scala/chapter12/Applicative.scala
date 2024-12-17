@@ -1,6 +1,6 @@
 package chapter12
 
-import chapter10.{Monoid, Semigroup}
+import chapter10.Semigroup
 import chapter11.Functor
 import chapter4.Validated
 import chapter6.State

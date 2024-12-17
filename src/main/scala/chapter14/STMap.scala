@@ -15,3 +15,4 @@ final class STMap[S, K, V] private (private var value: mutable.Map[K, V]):
         ST(value(k))
         
     def freeze: ST[S, Map[K, V]] = ST(Map.from(value))
+    

@@ -51,6 +51,8 @@ trait Monad[F[_]] extends Applicative[F]:
 
         def fmViaJoinMap[B](f: A => F[B]): F[B] =
             fa.map(f).join
+            
+        def void: F[Unit] = fa.map(_ => ())
 
     extension [A](ffa: F[F[A]])
         def join: F[A] = joyn(ffa)
