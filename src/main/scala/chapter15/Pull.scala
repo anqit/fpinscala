@@ -2,10 +2,13 @@ package chapter15
 
 import chapter10.Monoid
 import chapter11.Monad
+import chapter13.IO
 
+import java.nio.file.{ Files, Paths }
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
 import scala.util.chaining.scalaUtilChainingOps
+import scala.util.Using
 
 opaque type Stream[+O] = Pull[O, Unit]
 
@@ -116,6 +119,12 @@ enum Pull[+O, +R]:
             val o2 = m.combine(s, o)
             (o2, o2)
         .map(_._2)
+
+    def filter(p: O => Boolean): Pull[O, R] =
+        uncons.flatMap:
+            case Left(r) => Result(r)
+            case Right(hd, tl) =>
+                if p(hd) then Output(hd) >> tl.filter(p) else tl.filter(p)
 end Pull
 
 object Pull:
@@ -209,8 +218,29 @@ object Stream:
       p: Pipe[String, A],
     )(using m: Monoid[A]): IO[A] = IO:
         val source = scala.io.Source.fromFile(file)
-        try fromIterator(source.getLines).pipe(p).fold(m.empty)(m.combine)
+        try fromIterator(source.getLines).pipe(p).fold(m.identity)(m.combine)._2
         finally source.close()
+
+    def toCelsius(fahrenheit: Double): Double =
+        (5.0 / 9.0) * (fahrenheit - 32.0)
+
+    def convert(inputFile: String, outputFile: String): IO[Unit] = IO:
+        val nonEmpty: Pipe[String, String] = ss => ss.filter(s => !s.isBlank)
+        val nonComments: Pipe[String, String] = ss => ss.filter(s => s.charAt(0) != '#')
+        val toF: Pipe[String, Double] = ss => ss.flatMapOutput(s => Pull.Output(s.toDouble))
+        val toC: Pipe[Double, Double] = fs => fs.map(toCelsius)
+
+        val convertFToCPipe: Pipe[String, Double] =
+            nonEmpty andThen nonComments andThen toF andThen toC
+
+        Using.Manager: use =>
+            val source = use(scala.io.Source.fromFile(inputFile))
+            val writer = use(Files.newBufferedWriter(Paths.get(outputFile)))
+            
+            fromIterator(source.getLines).pipe(convertFToCPipe).fold(()): (_, c) =>
+                writer.write(c.toString)
+                writer.newLine()
+
 
     extension [O](self: Stream[O])
         def toPull: Pull[O, Unit] = self
@@ -229,7 +259,7 @@ object Stream:
 
     extension [O](self: Pull[O, Unit])
         def toStream: Stream[O] = self
-        
+
     given Monad[Stream] with
         def unit[A](a: => A): Stream[A] = Pull.Output(a)
         extension [A](sa: Stream[A])

@@ -17,19 +17,19 @@ object IO:
         par(Par.delay(Par.unit(a)))
 
     // Provides the syntax `IO.async { cb => ... }` for creating asynchronous IO blocks.
-    def async[A](cb: (A => Unit) => Unit): IO[A] =
-        fork(par(Par.async(cb)))
+    //def async[A](cb: (A => Unit) => Unit): IO[A] =
+    //    fork(par(Par.async(cb)))
 
     def fork[A](a: => IO[A]): IO[A] = par(Par.lazyUnit(())).flatMap(_ => a)
 
     def forkUnit[A](a: => A): IO[A] = fork(now(a))
 
-    extension [A](ioa: IO[A])
-        def unsafeRunSync(pool: ExecutorService): A =
-            ioa.run.run(pool)
-
     given monad: Monad[IO] with
         def unit[A](a: => A) = IO(a)
         extension [A](fa: IO[A])
-            def flatMap[B](f: A => IO[B]): IO[B] =
+            override def flatMap[B](f: A => IO[B]): IO[B] =
                 fa.flatMap(f)
+
+    extension [A](ioa: IO[A])
+        def unsafeRunSync(pool: ExecutorService)(using monad: Monad[Par]): A =
+            ioa.run.run(pool)
